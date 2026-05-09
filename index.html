@@ -428,6 +428,131 @@ textarea{resize:none;height:60px;line-height:1.5;}
   background:var(--bg);border-radius:10px;font-size:var(--fs-xs);color:var(--text-sub);
   border:2px solid var(--border);
 }
+
+/* ══════════════════════════════════════════
+   모바일 반응형 (768px 이하)
+══════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* 헤더 */
+  header { padding: 0 14px; height: 50px; }
+  .logo-title { font-size: 14px; }
+  #clock { display: none; }
+  .live-chip span { display: none; } /* 점만 표시 */
+
+  /* 접근성 버튼 작게 */
+  .a11y-panel { top: 58px; }
+  .a11y-btn { width: 52px; height: 52px; }
+  .a11y-btn-icon { font-size: 20px; }
+  .a11y-btn-label { font-size: 9px; }
+
+  /* 앱 레이아웃: 세로 단일 컬럼 */
+  .app { flex-direction: column; padding-top: 50px; }
+
+  /* ── 챗봇 패널: 기본 숨김 → 드로어로 변환 ── */
+  .chat-panel {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    width: 100%;
+    height: 75vh;
+    border-right: none;
+    border-top: 2.5px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    z-index: 350;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(.32,.72,0,1);
+    box-shadow: 0 -8px 32px rgba(0,0,0,.15);
+  }
+  .chat-panel.open {
+    transform: translateY(0);
+  }
+
+  /* 드로어 손잡이 */
+  .chat-panel::before {
+    content: '';
+    display: block;
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+  }
+
+  /* 챗봇 오버레이 (드로어 열릴 때 배경 dim) */
+  .chat-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.4);
+    z-index: 340;
+  }
+  .chat-overlay.show { display: block; }
+
+  /* ── 챗봇 플로팅 열기 버튼 ── */
+  .chat-fab {
+    display: flex !important; /* 모바일에서만 표시 */
+    position: fixed;
+    bottom: 24px; right: 20px;
+    z-index: 330;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: var(--red);
+    border: none; cursor: pointer;
+    align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(227,45,45,.5);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .chat-fab:hover { transform: scale(1.07); }
+  .chat-fab svg { fill: #fff; width: 26px; height: 26px; }
+  /* 알림 뱃지 */
+  .chat-fab-badge {
+    position: absolute; top: -2px; right: -2px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #ff9800; color: #fff;
+    font-size: 10px; font-weight: 700;
+    display: none; align-items: center; justify-content: center;
+    border: 2px solid #fff;
+  }
+  .chat-fab-badge.show { display: flex; }
+
+  /* 메인 스크롤: 전체 너비 */
+  .main-scroll {
+    padding: 20px 16px 120px; /* 하단 FAB 여유 */
+    height: calc(100vh - 50px);
+    overflow-y: auto;
+  }
+
+  /* 히어로 */
+  .hero h1 { font-size: 22px; }
+  .hero p  { font-size: 13px; }
+  .hero    { margin-bottom: 20px; }
+
+  /* SOS 버튼 */
+  .sos-clock-wrap { width: 120px; height: 120px; }
+  .sos-btn { width: 104px; height: 104px; }
+  .sos-btn-label { font-size: 15px; }
+  .sos-gauge { inset: 0; width: 100%; height: 100%; }
+
+  /* 검색 카드 */
+  .card { padding: 16px; }
+  .form-row2 { grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* 지도 높이 */
+  .map-wrap { height: 280px; }
+
+  /* 병원 카드 */
+  .hosp-card { flex-direction: column; gap: 10px; }
+  .hosp-right { display: flex; align-items: center; gap: 10px; width: 100%; }
+  .score-bar { flex: 1; }
+
+  /* 경로 모달 */
+  .route-modal-box { padding: 18px 16px 28px; }
+  .route-btns { grid-template-columns: repeat(4,1fr); gap: 8px; }
+  .route-btn { padding: 12px 6px; }
+  .route-btn-icon { font-size: 22px; }
+}
+
+/* 데스크탑에서 FAB 숨김 */
+.chat-fab { display: none; }
 </style>
 </head>
 <body>
@@ -456,6 +581,15 @@ textarea{resize:none;height:60px;line-height:1.5;}
   </button>
 </div>
 
+<!-- 챗봇 드로어 오버레이 (모바일) -->
+<div class="chat-overlay" id="chatOverlay" onclick="closeChatDrawer()"></div>
+
+<!-- 챗봇 플로팅 열기 버튼 (모바일) -->
+<button class="chat-fab" id="chatFab" onclick="openChatDrawer()">
+  <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+  <div class="chat-fab-badge" id="chatFabBadge">!</div>
+</button>
+
 <!-- SOS 오버레이 -->
 <div class="sos-overlay" id="sosOverlay">
   <div class="sos-count" id="sosCount">3</div>
@@ -474,7 +608,7 @@ textarea{resize:none;height:60px;line-height:1.5;}
 <div class="app">
 
   <!-- 좌측 챗봇 패널 -->
-  <div class="chat-panel">
+  <div class="chat-panel" id="chatPanel">
     <div class="chat-panel-header">
       <div class="chat-panel-header-left">
         <div class="chat-panel-title">증상 AI 분류</div>
@@ -914,6 +1048,8 @@ function appendBubble(html,type){
   const c=document.getElementById('chatMsgs');
   const d=document.createElement('div');d.className=`bubble ${type}`;d.innerHTML=html;
   c.appendChild(d);c.scrollTop=c.scrollHeight;
+  // AI 응답이면 FAB 뱃지 표시 (모바일 드로어 닫혀있을 때)
+  if(type==='ai'||type==='sys'||type==='crit') showFabBadge();
 }
 
 async function sendChat(){
@@ -1322,6 +1458,39 @@ async function initLoc(lat,lng){
 }
 
 // ── 유틸 ─────────────────────────────────
+// ══════════════════════════════════════════
+//  모바일 챗봇 드로어
+// ══════════════════════════════════════════
+function openChatDrawer(){
+  document.getElementById('chatPanel').classList.add('open');
+  document.getElementById('chatOverlay').classList.add('show');
+  document.getElementById('chatFabBadge').classList.remove('show');
+  document.getElementById('chatIn').focus();
+}
+function closeChatDrawer(){
+  document.getElementById('chatPanel').classList.remove('open');
+  document.getElementById('chatOverlay').classList.remove('show');
+}
+// 챗봇 응답 시 FAB 뱃지 표시 (드로어 닫혀있을 때만)
+function showFabBadge(){
+  const isMobile = window.innerWidth <= 768;
+  const isOpen   = document.getElementById('chatPanel').classList.contains('open');
+  if(isMobile && !isOpen){
+    document.getElementById('chatFabBadge').classList.add('show');
+  }
+}
+// 스와이프로 드로어 닫기 (터치)
+(function(){
+  let startY = 0;
+  const panel = document.getElementById('chatPanel');
+  if(!panel) return;
+  panel.addEventListener('touchstart', e=>{ startY = e.touches[0].clientY; }, {passive:true});
+  panel.addEventListener('touchend',   e=>{
+    const dy = e.changedTouches[0].clientY - startY;
+    if(dy > 80) closeChatDrawer(); // 80px 이상 아래로 스와이프 시 닫힘
+  }, {passive:true});
+})();
+
 function showLoad(txt){document.getElementById('loadingTxt').textContent=txt;document.getElementById('loading').classList.add('show');}
 function hideLoad(){document.getElementById('loading').classList.remove('show');}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
