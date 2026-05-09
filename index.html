@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>응급실 추천 시스템</title>
 <!-- Pretendard 폰트 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
@@ -433,6 +433,10 @@ textarea{resize:none;height:60px;line-height:1.5;}
    모바일 반응형 (768px 이하)
 ══════════════════════════════════════════ */
 @media (max-width: 768px) {
+  /* iOS Safari 자동 줌 방지: input 폰트 16px 이상 강제 */
+  input, textarea, select, .chat-input {
+    font-size: 16px !important;
+  }
 
   /* 헤더 */
   header { padding: 0 14px; height: 50px; }
