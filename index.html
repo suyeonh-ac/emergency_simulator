@@ -374,6 +374,53 @@ textarea{resize:none;height:60px;line-height:1.5;}
 /* ── 토스트 ── */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:10px;font-size:var(--fs-sm);z-index:999;opacity:0;pointer-events:none;transition:opacity .3s;}
 .toast.show{opacity:1;}
+
+/* ── 지도 현위치 버튼 ── */
+.map-myloc-btn{
+  position:absolute;bottom:14px;right:14px;z-index:10;
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:10px;padding:8px 13px;
+  display:flex;align-items:center;gap:6px;
+  font-size:var(--fs-xs);font-weight:600;color:var(--text);font-family:inherit;
+  cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12);transition:all .15s;
+}
+.map-myloc-btn:hover{border-color:var(--red);color:var(--red);}
+.map-myloc-btn svg{width:16px;height:16px;}
+
+/* ── 경로 모달 ── */
+.route-modal{
+  display:none;position:fixed;inset:0;z-index:400;
+  background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center;
+}
+.route-modal.show{display:flex;}
+.route-modal-box{
+  background:var(--surface);border-radius:20px 20px 0 0;
+  padding:22px 20px 36px;width:100%;max-width:620px;
+  box-shadow:0 -4px 24px rgba(0,0,0,.15);
+  animation:slideUp .25s ease;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.route-modal-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;}
+.route-modal-title{font-size:var(--fs-lg);font-weight:700;margin-bottom:3px;}
+.route-modal-sub{font-size:var(--fs-xs);color:var(--text-sub);}
+.route-modal-close{
+  background:var(--bg);border:none;border-radius:50%;
+  width:32px;height:32px;font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:var(--text-sub);flex-shrink:0;
+}
+.route-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.route-btn{
+  background:var(--bg);border:1.5px solid var(--border);border-radius:14px;
+  padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  cursor:pointer;font-family:inherit;font-size:var(--fs-xs);font-weight:600;color:var(--text);
+  transition:all .15s;
+}
+.route-btn:hover{border-color:var(--red);color:var(--red);background:var(--red-light);}
+.route-btn-icon{font-size:26px;line-height:1;}
+.route-info-row{
+  display:flex;gap:14px;flex-wrap:wrap;padding:12px 14px;
+  background:var(--bg);border-radius:10px;font-size:var(--fs-xs);color:var(--text-sub);
+}
 </style>
 </head>
 <body>
@@ -562,6 +609,45 @@ textarea{resize:none;height:60px;line-height:1.5;}
         <strong id="locName">위치 확인 중...</strong>
         <span id="locCoord">---, ---</span>
       </div>
+      <!-- 현위치 버튼 -->
+      <button class="map-myloc-btn" onclick="goMyLoc()" title="현재 위치로 이동">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+        </svg>
+        <span>현위치</span>
+      </button>
+    </div>
+
+    <!-- 경로 모달 -->
+    <div class="route-modal" id="routeModal">
+      <div class="route-modal-box">
+        <div class="route-modal-header">
+          <div>
+            <div class="route-modal-title" id="routeHospName">병원명</div>
+            <div class="route-modal-sub" id="routeHospAddr">주소</div>
+          </div>
+          <button class="route-modal-close" onclick="closeRouteModal()">✕</button>
+        </div>
+        <div class="route-btns">
+          <button class="route-btn" onclick="openRoute('car')">
+            <span class="route-btn-icon">🚗</span><span>자동차</span>
+          </button>
+          <button class="route-btn" onclick="openRoute('taxi')">
+            <span class="route-btn-icon">🚕</span><span>택시</span>
+          </button>
+          <button class="route-btn" onclick="openRoute('transit')">
+            <span class="route-btn-icon">🚌</span><span>대중교통</span>
+          </button>
+          <button class="route-btn" onclick="openRoute('walk')">
+            <span class="route-btn-icon">🚶</span><span>도보</span>
+          </button>
+        </div>
+        <div class="route-info-row">
+          <span id="routeDist">—</span>
+          <span id="routeEta">—</span>
+          <span id="routeBed">—</span>
+        </div>
+      </div>
     </div>
 
     <!-- 병원 리스트 -->
@@ -633,6 +719,20 @@ function setGender(g){
   document.getElementById('gMale').classList.toggle('active',g==='male');
   document.getElementById('gFemale').classList.toggle('active',g==='female');
 }
+
+// 나이 입력 시 19세 이하 → 소아과 자동 설정
+document.getElementById('age').addEventListener('change', function(){
+  const age = parseInt(this.value);
+  if(!isNaN(age) && age <= 19 && age >= 0){
+    detDept = 'peds';
+    showToast(`${age}세 → 소아과 응급실을 우선 탐색합니다.`);
+    // 챗봇에도 안내
+    appendBubble(`${age}세로 확인됩니다. 소아과 응급실을 우선적으로 탐색합니다.`, 'sys');
+  } else if(!isNaN(age) && age > 19 && detDept === 'peds'){
+    // 성인으로 바뀌면 소아과 해제
+    detDept = null;
+  }
+});
 
 // ── 증상 태그 ─────────────────────────────
 function toggleTag(el){el.classList.toggle('active');}
@@ -1049,13 +1149,16 @@ function renderMarkers(hospitals,isCrit){
 }
 
 // ── 병원 리스트 렌더링 ────────────────────
+// 현재 선택된 병원 (경로 모달용)
+let selectedHosp = null;
+
 function renderHospList(hospitals,isCrit){
   const rankClasses=['r1','r2','r3','r4','r5'];
   const sl={ok:'여유',warn:'주의',crit:'포화'};
   const bedClass={ok:'bed-ok',warn:'bed-warn',crit:'bed-crit'};
 
   document.getElementById('hospList').innerHTML=hospitals.map((h,i)=>`
-    <div class="hosp-card${i===0?' rank-1':''}" onclick="focusHosp(${h.lat},${h.lng})">
+    <div class="hosp-card${i===0?' rank-1':''}" onclick="openRouteModal(${i})">
       <div class="hosp-rank ${rankClasses[i]}">${i+1}</div>
       <div class="hosp-info">
         <div class="hosp-name">${h.name}</div>
@@ -1078,9 +1181,92 @@ function renderHospList(hospitals,isCrit){
         <div style="font-size:10px;color:var(--text-hint);margin-top:3px;text-align:right;">${!h.real?'시뮬레이션':''}</div>
       </div>
     </div>`).join('');
+
+  // 현재 병원 목록 저장 (모달에서 참조)
+  window._currentHospitals = hospitals;
 }
 
-function focusHosp(lat,lng){if(!mapReady)return;kakaoMap.setCenter(new kakao.maps.LatLng(lat,lng));kakaoMap.setLevel(4);}
+// ── 경로 모달 열기 ────────────────────────
+function openRouteModal(idx){
+  const h = window._currentHospitals?.[idx];
+  if(!h) return;
+  selectedHosp = h;
+
+  // 지도 이동
+  if(mapReady){
+    kakaoMap.setCenter(new kakao.maps.LatLng(parseFloat(h.lat), parseFloat(h.lng)));
+    kakaoMap.setLevel(4);
+  }
+
+  // 모달 내용 채우기
+  document.getElementById('routeHospName').textContent = h.name;
+  document.getElementById('routeHospAddr').textContent = h.address||'주소 정보 없음';
+  document.getElementById('routeDist').textContent     = `📍 ${h.dist}km`;
+  document.getElementById('routeEta').textContent      = `⏱️ 약 ${h.eta}분`;
+  document.getElementById('routeBed').textContent      = `🏥 가용 ${h.availBeds}병상`;
+
+  document.getElementById('routeModal').classList.add('show');
+}
+
+function closeRouteModal(){
+  document.getElementById('routeModal').classList.remove('show');
+}
+
+// 모달 배경 클릭 시 닫기
+document.getElementById('routeModal').addEventListener('click', e=>{
+  if(e.target.id==='routeModal') closeRouteModal();
+});
+
+// ── 경로 앱 연동 ──────────────────────────
+// 카카오맵 길찾기 URL로 연동 (모드별 분기)
+function openRoute(mode){
+  if(!selectedHosp){ showToast('병원 정보가 없습니다.'); return; }
+  const name = encodeURIComponent(selectedHosp.name);
+  const lat  = parseFloat(selectedHosp.lat);
+  const lng  = parseFloat(selectedHosp.lng);
+
+  // 카카오맵 길찾기 URL scheme
+  // https://apis.map.kakao.com/web/guide/#routeurl
+  const modeMap = {
+    car:     0,  // 자동차
+    taxi:    6,  // 택시 (카카오맵 = 자동차와 동일, 앱에서 택시 호출로 연결)
+    transit: 1,  // 대중교통
+    walk:    4,  // 도보
+  };
+  const rp = modeMap[mode] ?? 0;
+
+  // 출발지 좌표가 있으면 포함, 없으면 목적지만
+  let url;
+  if(userLat && userLng){
+    url = `https://map.kakao.com/link/from/현재위치,${userLat},${userLng}/to/${name},${lat},${lng}`;
+  } else {
+    url = `https://map.kakao.com/link/to/${name},${lat},${lng}`;
+  }
+
+  // 카카오맵 앱 딥링크 (모바일) / 웹 (PC)
+  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  if(isMobile){
+    // 카카오맵 앱 URL scheme 시도
+    const appUrl = `kakaomap://route?sp=${userLat},${userLng}&ep=${lat},${lng}&by=${['CAR','CAR','PUBLIC_TRANSPORTATION','CAR','FOOT'][rp]||'CAR'}`;
+    window.location.href = appUrl;
+    // 앱 없으면 웹으로 폴백
+    setTimeout(()=>{ window.open(url,'_blank'); }, 1500);
+  } else {
+    window.open(url, '_blank');
+  }
+  closeRouteModal();
+}
+
+// ── 현위치로 이동 ─────────────────────────
+function goMyLoc(){
+  if(!mapReady){ showToast('지도가 준비되지 않았습니다.'); return; }
+  if(userLat && userLng){
+    kakaoMap.setCenter(new kakao.maps.LatLng(userLat, userLng));
+    kakaoMap.setLevel(4);
+  } else {
+    showToast('위치 정보를 가져오는 중입니다.');
+  }
+}
 
 // ══════════════════════════════════════════
 //  카카오맵 초기화
