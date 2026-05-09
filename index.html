@@ -1108,7 +1108,7 @@ async function fetchEmer(lat,lng,deptKey){
       Object.entries(DEPT_MAP).forEach(([k,v])=>{if(v.field)depts[k]=g(v.field)==='가능'||g(v.field)==='Y';});
       return{name:g('dutyName')||g('hpid'),address:g('dutyAddr'),phone:g('dutyTel3')||g('dutyTel1'),
         lat:hlat,lng:hlng,occupancy:occ,available:occ<60?'ok':occ<80?'warn':'crit',
-        availBeds:hvec,eta:Math.round(d/300*60+2),dist:(d/1000).toFixed(1),depts,real:true};
+        availBeds:hvec,eta:Math.round(d/500+3),dist:(d/1000).toFixed(1),depts,real:true};
     }).filter(Boolean);
     if(deptKey&&deptKey!=='general'&&detKtas&&detKtas>=3){const f=hospitals.filter(h=>h.depts[deptKey]);if(f.length>=3)hospitals=f;}
     return hospitals;
@@ -1133,7 +1133,7 @@ function buildFb(data,lat,lng,dept){
     if(dept&&dept!=='general')depts[dept]=true;
     return{name:p.place_name,address:p.address_name,phone:p.phone,lat:hlat,lng:hlng,
       occupancy:occ,available:occ<60?'ok':occ<80?'warn':'crit',
-      availBeds:Math.floor(Math.random()*15+2),eta:Math.round(d/300*60+2),dist:(d/1000).toFixed(1),depts,real:false};
+      availBeds:Math.floor(Math.random()*15+2),eta:Math.round(d/500+3),dist:(d/1000).toFixed(1),depts,real:false};
   });
 }
 
