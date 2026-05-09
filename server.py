@@ -95,26 +95,55 @@ def classify():
 # ── /gpt ─────────────────────────────────────────────────
 @app.route("/gpt", methods=["POST"])
 def gpt_analyze():
-    data    = request.get_json()
-    symptom = (data or {}).get("symptom","").strip()
-    age     = (data or {}).get("age","미입력")
-    gender  = (data or {}).get("gender","미입력")
-    history = (data or {}).get("history","없음")
-    if not symptom: return jsonify({"error":"증상 없음"}),400
-    prompt = f"""환자 정보: 증상="{symptom}", 나이={age}세, 성별={gender}, 병력={history}
+    data       = request.get_json()
+    symptom    = (data or {}).get("symptom","").strip()
+    age        = (data or {}).get("age","미입력")
+    gender     = (data or {}).get("gender","미입력")
+    history    = (data or {}).get("history","없음")
+    turn       = (data or {}).get("turn", 1)       # 몇 번째 대화인지
+    multi_turn = (data or {}).get("multi_turn", False)
 
-응답 JSON:
-{{
-  "ktas": 1~5 정수,
+    if not symptom: return jsonify({"error":"증상 없음"}),400
+
+    system_prompt = """당신은 한국 응급의료 전문 AI입니다. 환자의 증상을 파악하여 KTAS를 분류합니다.
+
+규칙:
+1. 첫 번째 또는 두 번째 응답에서는 정보가 부족하면 핵심 추가 질문 1개를 하세요.
+2. 세 번째 응답부터는 반드시 최종 분류를 확정하세요.
+3. 심정지/무의식/뇌졸중 등 명백한 응급은 즉시 분류하세요.
+4. 반드시 JSON만 반환하세요.
+
+응답 JSON 형식:
+{
+  "ktas_final": true 또는 false,  // 분류 확정 여부
+  "next_question": "추가 질문 (ktas_final=false일 때만)",
+  "ktas": 1~5 정수 (ktas_final=true일 때),
   "ktas_reason": "판단 근거 한 줄",
   "dept": "cardiac|neuro|trauma|peds|ob|opth|internal|general",
   "dept_label": "진료과 한글명",
-  "symptoms": ["흉통/호흡곤란/복통/두통/심정지/외상/뇌졸중/발열/의식저하/좌측 팔 저림/식은땀/구토/골절/진통/안과 이상/소아 증상 중 해당 항목"],
-  "critical": true또는false,
-  "message": "안내 메시지 2~3문장"
-}}"""
+  "symptoms": ["해당 증상 태그들"],
+  "critical": true 또는 false,
+  "message": "환자 안내 메시지 1~2문장"
+}"""
+
+    user_prompt = f"""환자 정보: 나이={age}세, 성별={gender}, 기존병력={history}
+
+대화 내용:
+{symptom}
+
+현재 {turn}번째 응답입니다. {'정보가 충분하면 최종 분류를 확정하세요.' if turn >= 2 else '필요시 추가 질문 1개를 하세요.'}"""
+
     try:
-        return jsonify(call_gpt("한국 응급의료 전문 AI. JSON만 반환.", prompt))
+        result = call_gpt(system_prompt, user_prompt, max_tokens=400)
+        # ktas_final=false면 next_question만 반환
+        if not result.get("ktas_final", True):
+            return jsonify({
+                "ktas_final": False,
+                "next_question": result.get("next_question", "증상이 언제부터 시작됐나요?")
+            })
+        # 분류 확정
+        result["ktas_final"] = True
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error":str(e)}),500
 

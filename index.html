@@ -45,9 +45,17 @@ header{
 }
 .chat-panel-header{
   padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
 }
-.chat-panel-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-hint);margin-bottom:6px;}
+.chat-panel-header-left{display:flex;flex-direction:column;gap:6px;}
+.chat-panel-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-hint);}
 .chat-badges{display:flex;gap:5px;}
+.btn-reset-chat{
+  background:none;border:1px solid var(--border);border-radius:8px;
+  padding:5px 10px;font-size:11px;color:var(--text-hint);font-family:inherit;
+  cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;margin-top:2px;
+}
+.btn-reset-chat:hover{border-color:var(--red);color:var(--red);background:var(--red-light);}
 .badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.04em;}
 .badge-gpt{background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;}
 .badge-live{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
@@ -129,12 +137,17 @@ header{
 .sos-btn-label{color:#fff;font-size:15px;font-weight:700;letter-spacing:.05em;}
 /* 진행 링 */
 .sos-ring{
-  position:absolute;inset:-4px;border-radius:50%;
-  border:4px solid transparent;border-top-color:#fff;
-  animation:none;opacity:0;
+  position:absolute;inset:-8px;
+  width:calc(100% + 16px);height:calc(100% + 16px);
+  transform:rotate(-90deg);pointer-events:none;opacity:0;transition:opacity .2s;
 }
-.sos-btn.pressing .sos-ring{opacity:1;animation:ring 3s linear forwards;}
-@keyframes ring{from{transform:rotate(0deg)}to{transform:rotate(1080deg)}}
+.sos-ring circle{
+  fill:none;stroke:#fff;stroke-width:5;stroke-linecap:round;
+  stroke-dasharray:408;stroke-dashoffset:408;
+}
+.sos-btn.pressing .sos-ring{opacity:1;}
+.sos-btn.pressing .sos-ring circle{animation:ringFill 3s linear forwards;}
+@keyframes ringFill{from{stroke-dashoffset:408;}to{stroke-dashoffset:0;}}
 .sos-hint{font-size:12px;color:var(--text-hint);}
 
 /* sos 카운트다운 오버레이 */
@@ -210,7 +223,7 @@ textarea{resize:none;height:60px;line-height:1.5;}
 .ktas-reason{font-size:12px;color:var(--text-sub);line-height:1.6;}
 
 /* ── 지도 ── */
-.map-wrap{position:relative;border-radius:var(--radius);overflow:hidden;height:320px;box-shadow:var(--shadow);margin-bottom:24px;}
+.map-wrap{position:relative;border-radius:var(--radius);overflow:hidden;height:480px;box-shadow:var(--shadow);margin-bottom:24px;}
 #map{width:100%;height:100%;}
 .map-info{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.95);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--text-sub);box-shadow:var(--shadow);}
 .map-info strong{display:block;font-size:12px;color:var(--text);margin-bottom:2px;}
@@ -301,12 +314,15 @@ textarea{resize:none;height:60px;line-height:1.5;}
   <!-- 좌측 챗봇 패널 -->
   <div class="chat-panel">
     <div class="chat-panel-header">
-      <div class="chat-panel-title">증상 AI 분류</div>
-      <div class="chat-badges">
-        <span class="badge badge-gpt">GPT-4o-mini</span>
-        <span class="badge badge-live">실시간</span>
-        <span class="badge badge-voice">🎤 CLOVA</span>
+      <div class="chat-panel-header-left">
+        <div class="chat-panel-title">증상 AI 분류</div>
+        <div class="chat-badges">
+          <span class="badge badge-gpt">GPT-4o-mini</span>
+          <span class="badge badge-live">실시간</span>
+          <span class="badge badge-voice">🎤 CLOVA</span>
+        </div>
       </div>
+      <button class="btn-reset-chat" onclick="resetChat()" title="대화 초기화">↺ 초기화</button>
     </div>
 
     <div class="chat-msgs" id="chatMsgs">
@@ -344,7 +360,9 @@ textarea{resize:none;height:60px;line-height:1.5;}
       <button class="sos-btn" id="sosBtn"
         onmousedown="startSOS()" onmouseup="stopSOS()" onmouseleave="stopSOS()"
         ontouchstart="startSOS(event)" ontouchend="stopSOS()">
-        <div class="sos-ring" id="sosRing"></div>
+        <svg class="sos-ring" id="sosRing" viewBox="0 0 146 146" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="73" cy="73" r="65"/>
+        </svg>
         <svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
         <span class="sos-btn-label">119 신고</span>
       </button>
@@ -572,8 +590,18 @@ function startWebSpeech(){
 }
 
 // ══════════════════════════════════════════
-//  챗봇
+//  챗봇 (대화 히스토리 유지 + 추가 질문)
 // ══════════════════════════════════════════
+let chatHistory = [];   // {role, content} 누적
+let surveyDone  = false;
+
+function resetChat(){
+  chatHistory=[];surveyDone=false;detKtas=null;detDept=null;
+  document.getElementById('chatMsgs').innerHTML='';
+  document.getElementById('ktasResult').classList.remove('show');
+  appendBubble('대화가 초기화됐습니다. 증상을 다시 말씀해 주세요.<br><em style="color:var(--text-hint);font-size:11px;">예: "갑자기 가슴이 쥐어짜고 왼팔이 저려요"</em>','ai');
+}
+
 function appendBubble(html,type){
   const c=document.getElementById('chatMsgs');
   const d=document.createElement('div');d.className=`bubble ${type}`;d.innerHTML=html;
@@ -585,6 +613,9 @@ async function sendChat(){
   const msg=inp.value.trim();if(!msg)return;
   appendBubble(msg,'user');inp.value='';
 
+  // 히스토리에 사용자 메시지 추가
+  chatHistory.push({role:'user',content:msg});
+
   const typing=document.getElementById('typing');
   document.getElementById('chatMsgs').appendChild(typing);
   typing.style.display='block';
@@ -593,19 +624,48 @@ async function sendChat(){
   try{
     let result;
     try{
-      const res=await fetch(`${BACKEND_URL}/gpt`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symptom:msg,age:document.getElementById('age').value||'미입력',gender:selectedGender||'미입력',history:document.getElementById('medHistory').value||'없음'})});
-      if(!res.ok)throw new Error('GPT 서버 오류');
+      const res=await fetch(`${BACKEND_URL}/gpt`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          symptom: chatHistory.map(m=>`${m.role==='user'?'환자':'AI'}: ${m.content}`).join('\n'),
+          age:     document.getElementById('age').value||'미입력',
+          gender:  selectedGender||'미입력',
+          history: document.getElementById('medHistory').value||'없음',
+          multi_turn: true,
+          turn: chatHistory.filter(m=>m.role==='user').length
+        })
+      });
+      if(!res.ok)throw new Error(`GPT 서버 오류 ${res.status}`);
       result=await res.json();
-    }catch(e){console.warn('GPT 실패, 규칙 기반 사용:',e.message);result=ruleFallback(msg);}
+      if(result.error)throw new Error(result.error);
+    }catch(e){
+      console.warn('GPT 실패, 규칙 기반 사용:',e.message);
+      result=ruleFallback(msg);
+    }
 
     typing.style.display='none';
+
+    // AI 응답 히스토리 추가
+    const aiMsg=result.next_question||result.message||'';
+    if(aiMsg) chatHistory.push({role:'assistant',content:aiMsg});
+
+    // 추가 질문이 있으면 질문만 표시 (아직 분류 확정 아님)
+    if(result.next_question && !result.ktas_final){
+      appendBubble(result.next_question,'ai');
+      return;
+    }
+
+    // 분류 확정
     detKtas=result.ktas;detDept=result.dept;
+    surveyDone=true;
 
     if(result.symptoms?.length){clearTags();setTags(result.symptoms);}
 
-    // KTAS 결과 카드 업데이트
     const kc={1:'#dc2626',2:'#ea580c',3:'#d97706',4:'#16a34a',5:'#3b82f6'};
     const kl={1:'소생',2:'긴급',3:'응급',4:'준응급',5:'비응급'};
+
+    // KTAS 결과 카드
     const ktasEl=document.getElementById('ktasResult');
     ktasEl.classList.add('show');
     ktasEl.style.borderColor=kc[result.ktas];
@@ -614,16 +674,17 @@ async function sendChat(){
     document.getElementById('ktasDept').textContent=result.dept_label||'응급';
     document.getElementById('ktasReason').textContent=result.ktas_reason||'';
 
-    appendBubble(`<strong>KTAS ${result.ktas}</strong> · ${kl[result.ktas]}<br>${result.ktas_reason||''}<br><span style="color:#1d4ed8;font-size:11px;">필요 진료과: ${result.dept_label}</span>`,'sys');
-    appendBubble(result.message||'','ai');
+    appendBubble(`<strong>KTAS ${result.ktas}</strong> · ${kl[result.ktas]}<br><span style="color:var(--text-hint);font-size:12px;">${result.ktas_reason||''}</span><br><span style="color:#1d4ed8;font-size:11px;">필요 진료과: ${result.dept_label}</span>`,'sys');
+    if(result.message) appendBubble(result.message,'ai');
 
     if(result.critical){
       appendBubble('🚨 즉각적인 처치가 필요합니다. 119에 신고하거나 최근접 응급실로 이동하세요.','crit');
       setTimeout(()=>runSearch(),1000);
     }
+
   }catch(e){
     typing.style.display='none';
-    appendBubble('분석 오류가 발생했습니다. 증상 태그를 선택해 주세요.','ai');
+    appendBubble('분석 오류가 발생했습니다. 증상 태그를 직접 선택해 주세요.','ai');
     console.error(e);
   }
 }
