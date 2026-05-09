@@ -609,17 +609,31 @@ async function fetchEmer(lat,lng,deptKey){
       const g=t=>item.querySelector(t)?.textContent?.trim()||'';
       const hvec=parseInt(g('hvec'))||0,hpbdn=parseInt(g('hpbdn'))||10;
       const occ=Math.round((1-hvec/hpbdn)*100);
-      const hlat=parseFloat(g('wgs84Lat'))||lat,hlng=parseFloat(g('wgs84Lon'))||lng;
+
+      // ── [BUG FIX] 병원 좌표: 유효하지 않으면 null 처리 ──
+      const hlat=parseFloat(g('wgs84Lat'));
+      const hlng=parseFloat(g('wgs84Lon'));
+      if(!hlat||!hlng||isNaN(hlat)||isNaN(hlng))return null; // 좌표 없는 항목 제외
+
       const d=dist(lat,lng,hlat,hlng);
+      const etaMin=Math.round(d/300*60+2); // 평균 300m/분 (18km/h) 기준
+
+      // ── [NEW] 자차 30분 초과 병원 제외 ──
+      if(etaMin>30)return null;
+
       const depts={};
-      Object.entries(DEPT_MAP).forEach(([k,v])=>{if(v.field)depts[k]=g(v.field)==='가능'||g(v.field)==='Y'||g(v.field)==='1';});
+      Object.entries(DEPT_MAP).forEach(([k,v])=>{
+        if(v.field) depts[k]=g(v.field)==='가능'||g(v.field)==='Y'||g(v.field)==='1';
+      });
       return{name:g('dutyName')||g('hpid'),address:g('dutyAddr'),phone:g('dutyTel3')||g('dutyTel1'),
         lat:hlat,lng:hlng,occupancy:Math.min(occ,99),available:occ<60?'ok':occ<80?'warn':'crit',
-        availBeds:hvec,eta:Math.round(d/300*60+2),dist:(d/1000).toFixed(1),depts,real:true};
-    });
-    if(deptKey&&deptKey!=='general'&&detKtas&&detKtas>=3){
-      const filtered=hospitals.filter(h=>h.depts[deptKey]);
-      if(filtered.length>=3)hospitals=filtered;
+        availBeds:hvec,eta:etaMin,dist:(d/1000).toFixed(1),depts,real:true};
+    }).filter(Boolean); // null 제거
+
+    // ── [ENHANCED] 특수과 필터: 3개 이상 확보 시 특수과만, 아니면 전체에서 상위 유지 ──
+    if(deptKey&&deptKey!=='general'){
+      const withDept=hospitals.filter(h=>h.depts[deptKey]);
+      if(withDept.length>=2) hospitals=withDept; // 최소 2개 이상이면 특수과 병원만 표시
     }
     return hospitals;
   }catch(e){console.warn('[응급의료센터 API]',e.message);return null;}
@@ -629,7 +643,8 @@ function kakaoFallback(lat,lng,dept,cb){
   if(!mapReady){cb([]);return;}
   const di=dept&&DEPT_MAP[dept],kw=di&&dept!=='general'?`${di.label} 응급실`:'응급실';
   const ps=new kakao.maps.services.Places();
-  const search=(kw,callback)=>ps.keywordSearch(kw,callback,{location:new kakao.maps.LatLng(lat,lng),radius:8000,size:15});
+  // 자차 30분 ≈ 18km/h 평균 → 반경 15km로 탐색 후 ETA 기반 재필터
+  const search=(kw,callback)=>ps.keywordSearch(kw,callback,{location:new kakao.maps.LatLng(lat,lng),radius:15000,size:15});
   search(kw,function(data,status){
     if(status!==kakao.maps.services.Status.OK&&kw!=='응급실'){
       search('응급실',(d2,s2)=>cb(s2===kakao.maps.services.Status.OK?buildFb(d2,lat,lng,dept):[]));
@@ -638,16 +653,22 @@ function kakaoFallback(lat,lng,dept,cb){
 }
 
 function buildFb(data,lat,lng,dept){
-  return data.slice(0,12).map(p=>{
+  return data.map(p=>{
+    const hlat=parseFloat(p.y),hlng=parseFloat(p.x);
+    // ── [BUG FIX] 카카오 fallback도 좌표 유효성 검사 ──
+    if(!hlat||!hlng||isNaN(hlat)||isNaN(hlng))return null;
     const occ=Math.floor(Math.random()*55+30);
-    const hlat=parseFloat(p.y),hlng=parseFloat(p.x),d=dist(lat,lng,hlat,hlng);
+    const d=dist(lat,lng,hlat,hlng);
+    const etaMin=Math.round(d/300*60+2);
+    // ── [NEW] 30분 초과 제외 ──
+    if(etaMin>30)return null;
     const depts={};
     Object.keys(DEPT_MAP).forEach(k=>{depts[k]=Math.random()>.35;});
     if(dept&&dept!=='general')depts[dept]=true;
     return{name:p.place_name,address:p.address_name,phone:p.phone,lat:hlat,lng:hlng,
       occupancy:occ,available:occ<60?'ok':occ<80?'warn':'crit',
-      availBeds:Math.floor(Math.random()*15+2),eta:Math.round(d/300*60+2),dist:(d/1000).toFixed(1),depts,real:false};
-  });
+      availBeds:Math.floor(Math.random()*15+2),eta:etaMin,dist:(d/1000).toFixed(1),depts,real:false};
+  }).filter(Boolean).slice(0,12);
 }
 
 function score(h,ktas,dept){
@@ -762,22 +783,41 @@ async function runOptimization(fromChat=false){
   if(!userLat){alert('위치 정보 확인 중입니다. 잠시 후 다시 시도해 주세요.');return;}
   const btn=document.getElementById('runBtn');btn.disabled=true;
   const isCrit=detKtas&&detKtas<=2;
+  const deptLabel=detDept&&DEPT_MAP[detDept]?.label||'응급';
 
   document.getElementById('loadingTxt').textContent=isCrit
-    ?'⚠️ 중증 — 최근접 병원 즉시 탐색 중...'
-    :`${detDept&&DEPT_MAP[detDept]?.label||''} 최적 응급실 계산 중...`;
+    ?'⚠️ 중증 — 30분 이내 최근접 병원 탐색 중...'
+    :`${deptLabel} 진료 가능 · 30분 이내 응급실 탐색 중...`;
   document.getElementById('loadingOv').classList.add('active');
 
-  if(detDept&&!isCrit){
+  // 특수과가 있는 경우: 특수과 가능 병원 우선 탐색
+  if(detDept&&detDept!=='general'&&!isCrit){
     const ed=await fetchEmer(userLat,userLng,detDept);
     if(ed?.length){useReal=true;rawHospitals=ed;}
-    else{await new Promise(r=>{kakaoFallback(userLat,userLng,detDept,fb=>{if(fb.length){useReal=false;rawHospitals=fb;}r();});});}
+    else{
+      await new Promise(r=>{
+        kakaoFallback(userLat,userLng,detDept,fb=>{
+          if(fb.length){useReal=false;rawHospitals=fb;}
+          r();
+        });
+      });
+    }
+    // 특수과 병원이 충분하지 않으면 일반 응급실도 병합
+    if(rawHospitals.length<3){
+      const fallbackEd=await fetchEmer(userLat,userLng,null);
+      if(fallbackEd?.length){
+        // 중복 제거 후 병합
+        const existing=new Set(rawHospitals.map(h=>h.name));
+        const merged=rawHospitals.concat(fallbackEd.filter(h=>!existing.has(h.name)));
+        rawHospitals=merged;useReal=true;
+      }
+    }
   }
   await new Promise(r=>setTimeout(r,isCrit?700:1100));
 
   if(!rawHospitals.length){
     document.getElementById('loadingOv').classList.remove('active');btn.disabled=false;
-    alert('주변 응급실 데이터를 불러오지 못했습니다.');return;
+    alert('30분 이내 응급실을 찾을 수 없습니다. 119(☎)에 신고해 주세요.');return;
   }
 
   const scored=rawHospitals.map(h=>({...h,score:score(h,detKtas,detDept)}));
@@ -802,17 +842,20 @@ async function runOptimization(fromChat=false){
 
 function renderResults(hospitals,isCrit){
   const dt=document.getElementById('dtag');dt.style.display='inline';
-  if(isCrit){dt.className='dtag dtag-crit';dt.textContent='중증 — 최근접 우선';}
-  else if(useReal){dt.className='dtag dtag-live';dt.textContent='실시간 데이터';}
-  else{dt.className='dtag dtag-sim';dt.textContent='시뮬레이션';}
+  if(isCrit){dt.className='dtag dtag-crit';dt.textContent='중증 — 30분내 최근접';}
+  else if(useReal){dt.className='dtag dtag-live';dt.textContent='실시간 · 30분 이내';}
+  else{dt.className='dtag dtag-sim';dt.textContent='시뮬레이션 · 30분 이내';}
   document.getElementById('rcount').textContent=`${hospitals.length}개 분석`;
 
   const sl={ok:'여유',warn:'주의',crit:'포화'};
   const rc=i=>i===0?'r1':i===1?'r2':i===2?'r3':'rn';
 
   document.getElementById('hospList').innerHTML=hospitals.map((h,i)=>{
-    const dLabel=detDept&&detDept!=='general'&&h.depts?.[detDept]
-      ?`<span class="pill dept">${DEPT_MAP[detDept]?.label||''} 가능</span>`:'';
+    // 특수과 진료 가능 여부 표시
+    const hasDept=detDept&&detDept!=='general'&&h.depts?.[detDept];
+    const dLabel=hasDept
+      ?`<span class="pill dept">${DEPT_MAP[detDept]?.label||''} 가능</span>`
+      :(detDept&&detDept!=='general'?`<span class="pill" style="border-color:#fcd34d;background:#fffbeb;color:#92400e;">${DEPT_MAP[detDept]?.label||''} 미확인</span>`:'');
     return`<div class="hcard${isCrit&&i===0?' top':''}" onclick="focusH(${h.lat},${h.lng})">
       <div class="rank ${rc(i)}">${i+1}</div>
       <div class="hname">${h.name}</div>
