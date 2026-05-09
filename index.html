@@ -14,23 +14,27 @@
   --border:#e4e4e4; --text:#1a1a1a; --text-sub:#555; --text-hint:#999;
   --green:#16a34a; --amber:#d97706;
   --radius:14px; --shadow:0 4px 20px rgba(0,0,0,.08);
-  /* 접근성 변수 */
-  --fs-base:15px;      /* 기본 글씨 크기 */
-  --fs-sm:13px;
-  --fs-xs:11px;
-  --fs-lg:17px;
-  --fs-xl:20px;
-  --fs-2xl:26px;
+  /* ── 기본 글씨 크기 (기존 large 수준으로 상향) ── */
+  --fs-base:16px;
+  --fs-sm:14px;
+  --fs-xs:12px;
+  --fs-lg:18px;
+  --fs-xl:22px;
+  --fs-2xl:28px;
+  /* 챗봇 라벨 - 크기 변동 없이 고정 */
+  --fs-chat-label:11px;
 }
 
-/* ── 큰 글씨 모드 ── */
+/* ── 큰 글씨 모드 (더 크게) ── */
 body.large-text {
-  --fs-base:18px;
-  --fs-sm:16px;
-  --fs-xs:14px;
-  --fs-lg:20px;
-  --fs-xl:23px;
-  --fs-2xl:30px;
+  --fs-base:20px;
+  --fs-sm:18px;
+  --fs-xs:15px;
+  --fs-lg:23px;
+  --fs-xl:27px;
+  --fs-2xl:34px;
+  /* 챗봇 라벨은 large-text에서도 고정 */
+  --fs-chat-label:11px;
 }
 
 /* ── 고대비 모드 ── */
@@ -87,27 +91,27 @@ header{
   display:flex;flex-direction:column;
 }
 .a11y-btn{
-  width:62px;height:62px;
+  width:70px;height:70px;
   border:none;
-  border-left:2.5px solid var(--border);
+  border-left:3px solid var(--border);
   background:var(--surface);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
   cursor:pointer;font-family:inherit;color:var(--text-sub);
   transition:all .15s;
-  box-shadow:-3px 2px 12px rgba(0,0,0,.1);
+  box-shadow:-4px 2px 14px rgba(0,0,0,.12);
 }
 .a11y-btn:first-child{
-  border-radius:12px 0 0 0;
-  border-top:2.5px solid var(--border);
+  border-radius:14px 0 0 0;
+  border-top:3px solid var(--border);
 }
 .a11y-btn:last-child{
-  border-radius:0 0 0 12px;
-  border-bottom:2.5px solid var(--border);
+  border-radius:0 0 0 14px;
+  border-bottom:3px solid var(--border);
 }
 .a11y-btn:hover{background:var(--red-light);color:var(--red);border-left-color:var(--red);}
 .a11y-btn.active{background:var(--red);color:#fff;border-color:var(--red);}
-.a11y-btn-icon{font-size:22px;font-weight:800;line-height:1;}
-.a11y-btn-label{font-size:10px;font-weight:600;letter-spacing:-.01em;text-align:center;line-height:1.2;}
+.a11y-btn-icon{font-size:26px;font-weight:800;line-height:1;}
+.a11y-btn-label{font-size:10px;font-weight:700;letter-spacing:-.01em;text-align:center;line-height:1.2;}
 
 /* ── 전체 레이아웃: 좌측 챗봇 고정 + 우측 스크롤 ── */
 .app{display:flex;height:100vh;padding-top:54px;}
@@ -123,31 +127,31 @@ header{
   display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
 }
 .chat-panel-header-left{display:flex;flex-direction:column;gap:6px;}
-.chat-panel-title{font-size:var(--fs-xs);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-hint);}
+.chat-panel-title{font-size:var(--fs-chat-label);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-hint);}
 .chat-badges{display:flex;gap:5px;}
 .btn-reset-chat{
-  background:none;border:1px solid var(--border);border-radius:8px;
-  padding:5px 10px;font-size:var(--fs-xs);color:var(--text-hint);font-family:inherit;
+  background:none;border:2px solid var(--border);border-radius:8px;
+  padding:5px 10px;font-size:var(--fs-chat-label);color:var(--text-hint);font-family:inherit;
   cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;margin-top:2px;
 }
 .btn-reset-chat:hover{border-color:var(--red);color:var(--red);background:var(--red-light);}
-.badge{font-size:var(--fs-xs);font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.04em;}
-.badge-gpt{background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;}
-.badge-live{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
-.badge-voice{background:#fdf4ff;color:#7e22ce;border:1px solid #d8b4fe;}
+.badge{font-size:var(--fs-chat-label);font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.04em;}
+.badge-gpt{background:#e0f2fe;color:#0369a1;border:2px solid #7dd3fc;}
+.badge-live{background:#eff6ff;color:#1d4ed8;border:2px solid #bfdbfe;}
+.badge-voice{background:#fdf4ff;color:#7e22ce;border:2px solid #d8b4fe;}
 
 .chat-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
 .chat-msgs::-webkit-scrollbar{width:3px;}
 .chat-msgs::-webkit-scrollbar-thumb{background:var(--border);}
 
 .bubble{max-width:88%;padding:10px 14px;border-radius:14px;font-size:var(--fs-sm);line-height:1.65;}
-.bubble.ai{background:var(--bg);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px;color:var(--text-sub);}
+.bubble.ai{background:var(--bg);border:2px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px;color:var(--text-sub);}
 .bubble.user{background:var(--red);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;}
-.bubble.sys{background:#eff6ff;border:1px solid #bfdbfe;align-self:flex-start;border-bottom-left-radius:4px;color:#1e3a8a;font-size:var(--fs-sm);}
-.bubble.crit{background:#fef2f2;border:1px solid #fca5a5;align-self:flex-start;color:#991b1b;font-weight:600;font-size:var(--fs-sm);}
-.bubble.voice-info{background:#fdf4ff;border:1px solid #d8b4fe;align-self:flex-start;color:#581c87;font-size:var(--fs-sm);}
+.bubble.sys{background:#eff6ff;border:2px solid #bfdbfe;align-self:flex-start;border-bottom-left-radius:4px;color:#1e3a8a;font-size:var(--fs-sm);}
+.bubble.crit{background:#fef2f2;border:2px solid #fca5a5;align-self:flex-start;color:#991b1b;font-weight:600;font-size:var(--fs-sm);}
+.bubble.voice-info{background:#fdf4ff;border:2px solid #d8b4fe;align-self:flex-start;color:#581c87;font-size:var(--fs-sm);}
 
-.typing-wrap{display:none;align-self:flex-start;padding:9px 13px;background:var(--bg);border:1px solid var(--border);border-radius:14px;border-bottom-left-radius:4px;}
+.typing-wrap{display:none;align-self:flex-start;padding:9px 13px;background:var(--bg);border:2px solid var(--border);border-radius:14px;border-bottom-left-radius:4px;}
 .typing-dots{display:flex;gap:4px;}
 .typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--text-hint);animation:tdot .9s infinite;}
 .typing-dots span:nth-child(2){animation-delay:.15s;}
@@ -166,7 +170,7 @@ header{
 .voice-status.show{display:block;}
 .voice-timer{color:#fca5a5;font-family:'IBM Plex Mono',monospace;margin-left:4px;}
 .chat-input{
-  flex:1;border:1px solid var(--border);border-radius:20px;
+  flex:1;border:2px solid var(--border);border-radius:20px;
   padding:8px 14px;font-size:var(--fs-sm);font-family:inherit;outline:none;
   transition:border-color .15s;background:var(--bg);
 }
@@ -254,7 +258,7 @@ header{
 .sos-count{font-size:96px;font-weight:700;color:#fff;line-height:1;font-family:'IBM Plex Mono',monospace;}
 .sos-count-txt{font-size:var(--fs-xl);color:rgba(255,255,255,.85);}
 .sos-cancel{
-  margin-top:32px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.5);
+  margin-top:32px;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.7);
   border-radius:99px;padding:12px 36px;color:#fff;font-size:var(--fs-base);
   cursor:pointer;font-family:inherit;transition:background .15s;
 }
@@ -269,7 +273,7 @@ header{
 .field label{font-size:var(--fs-xs);font-weight:500;color:var(--text-sub);margin-bottom:5px;display:block;}
 .field label span{color:var(--red);}
 input[type=number],input[type=text],textarea{
-  width:100%;border:1.5px solid var(--border);border-radius:10px;
+  width:100%;border:2px solid var(--border);border-radius:10px;
   padding:9px 13px;font-family:inherit;font-size:var(--fs-sm);color:var(--text);
   background:var(--bg);outline:none;transition:border-color .15s;
 }
@@ -279,33 +283,35 @@ textarea{resize:none;height:60px;line-height:1.5;}
 /* 성별 버튼 */
 .gender-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .gender-btn{
-  border:1.5px solid var(--border);background:var(--bg);border-radius:10px;
-  padding:9px;font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
+  border:2.5px solid var(--border);background:var(--bg);border-radius:10px;
+  padding:10px;font-family:inherit;font-size:var(--fs-sm);font-weight:600;cursor:pointer;
   transition:all .15s;color:var(--text);
 }
-.gender-btn.active{border-color:var(--red);background:var(--red-light);color:var(--red);font-weight:600;}
+.gender-btn:hover{border-color:var(--red);color:var(--red);}
+.gender-btn.active{border-color:var(--red);background:var(--red-light);color:var(--red);font-weight:700;}
 
 /* 증상 태그 */
 .sym-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px;}
 .sym-tag{
-  border:1.5px solid var(--border);background:var(--bg);border-radius:20px;
-  padding:4px 12px;font-size:var(--fs-xs);cursor:pointer;
+  border:2.5px solid var(--border);background:var(--bg);border-radius:20px;
+  padding:5px 13px;font-size:var(--fs-xs);font-weight:500;cursor:pointer;
   transition:all .15s;user-select:none;color:var(--text);
 }
 .sym-tag:hover{border-color:var(--red);color:var(--red);}
-.sym-tag.active{background:var(--red-light);border-color:var(--red);color:var(--red);font-weight:600;}
+.sym-tag.active{background:var(--red-light);border-color:var(--red);color:var(--red);font-weight:700;}
 
 /* 검색 버튼 */
 .btn-search{
   width:100%;background:var(--red);color:#fff;border:none;border-radius:10px;
-  padding:13px;font-family:inherit;font-size:var(--fs-lg);font-weight:700;
+  padding:14px;font-family:inherit;font-size:var(--fs-lg);font-weight:700;
   cursor:pointer;margin-top:16px;transition:background .15s,transform .1s;
   display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 14px rgba(227,45,45,.35);
 }
-.btn-search:hover{background:var(--red-dark);}
+.btn-search:hover{background:var(--red-dark);box-shadow:0 6px 20px rgba(227,45,45,.45);}
 .btn-search:active{transform:scale(.98);}
-.btn-search:disabled{background:#ccc;cursor:not-allowed;}
-.btn-search svg{fill:#fff;width:16px;height:16px;}
+.btn-search:disabled{background:#ccc;cursor:not-allowed;box-shadow:none;}
+.btn-search svg{fill:#fff;width:18px;height:18px;}
 
 /* ── KTAS 결과 배지 ── */
 .ktas-result{
@@ -378,14 +384,14 @@ textarea{resize:none;height:60px;line-height:1.5;}
 /* ── 지도 현위치 버튼 ── */
 .map-myloc-btn{
   position:absolute;bottom:14px;right:14px;z-index:10;
-  background:var(--surface);border:1.5px solid var(--border);
-  border-radius:10px;padding:8px 13px;
+  background:var(--surface);border:2.5px solid var(--red);
+  border-radius:10px;padding:9px 14px;
   display:flex;align-items:center;gap:6px;
-  font-size:var(--fs-xs);font-weight:600;color:var(--text);font-family:inherit;
-  cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12);transition:all .15s;
+  font-size:var(--fs-xs);font-weight:700;color:var(--red);font-family:inherit;
+  cursor:pointer;box-shadow:0 2px 10px rgba(227,45,45,.25);transition:all .15s;
 }
-.map-myloc-btn:hover{border-color:var(--red);color:var(--red);}
-.map-myloc-btn svg{width:16px;height:16px;}
+.map-myloc-btn:hover{background:var(--red-light);box-shadow:0 4px 16px rgba(227,45,45,.35);}
+.map-myloc-btn svg{width:16px;height:16px;fill:var(--red);}
 
 /* ── 경로 모달 ── */
 .route-modal{
@@ -410,16 +416,17 @@ textarea{resize:none;height:60px;line-height:1.5;}
 }
 .route-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
 .route-btn{
-  background:var(--bg);border:1.5px solid var(--border);border-radius:14px;
-  padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;
-  cursor:pointer;font-family:inherit;font-size:var(--fs-xs);font-weight:600;color:var(--text);
+  background:var(--bg);border:2.5px solid var(--border);border-radius:14px;
+  padding:18px 8px;display:flex;flex-direction:column;align-items:center;gap:7px;
+  cursor:pointer;font-family:inherit;font-size:var(--fs-xs);font-weight:700;color:var(--text);
   transition:all .15s;
 }
-.route-btn:hover{border-color:var(--red);color:var(--red);background:var(--red-light);}
-.route-btn-icon{font-size:26px;line-height:1;}
+.route-btn:hover{border-color:var(--red);color:var(--red);background:var(--red-light);transform:translateY(-1px);}
+.route-btn-icon{font-size:28px;line-height:1;}
 .route-info-row{
   display:flex;gap:14px;flex-wrap:wrap;padding:12px 14px;
   background:var(--bg);border-radius:10px;font-size:var(--fs-xs);color:var(--text-sub);
+  border:2px solid var(--border);
 }
 </style>
 </head>
