@@ -1038,11 +1038,12 @@ function startWebSpeech(){
 // ══════════════════════════════════════════
 //  챗봇 (대화 히스토리 유지 + 추가 질문)
 // ══════════════════════════════════════════
-let chatHistory = [];   // {role, content} 누적
-let surveyDone  = false;
+let chatHistory  = [];   // {role, content} 누적 - 팀원 API 형식
+let ktasContext  = '';   // 첫 응답에서 받은 ktas_context 캐싱
+let surveyDone   = false;
 
 function resetChat(){
-  chatHistory=[];surveyDone=false;detKtas=null;detDept=null;
+  chatHistory=[];ktasContext='';surveyDone=false;detKtas=null;detDept=null;
   document.getElementById('chatMsgs').innerHTML='';
   document.getElementById('ktasResult').classList.remove('show');
   appendBubble('대화가 초기화됐습니다. 증상을 다시 말씀해 주세요.<br><em style="color:var(--text-hint);font-size:var(--fs-xs);">예: "갑자기 가슴이 쥐어짜고 왼팔이 저려요"</em>','ai');
@@ -1052,7 +1053,6 @@ function appendBubble(html,type){
   const c=document.getElementById('chatMsgs');
   const d=document.createElement('div');d.className=`bubble ${type}`;d.innerHTML=html;
   c.appendChild(d);c.scrollTop=c.scrollHeight;
-  // AI 응답이면 FAB 뱃지 표시 (모바일 드로어 닫혀있을 때)
   if(type==='ai'||type==='sys'||type==='crit') showFabBadge();
 }
 
@@ -1061,8 +1061,8 @@ async function sendChat(){
   const msg=inp.value.trim();if(!msg)return;
   appendBubble(msg,'user');inp.value='';
 
-  // 히스토리에 사용자 메시지 추가
-  chatHistory.push({role:'user',content:msg});
+  // 히스토리에 사용자 메시지 추가 (팀원 API 형식: role/content)
+  chatHistory.push({role:'user', content:msg});
 
   const typing=document.getElementById('typing');
   document.getElementById('chatMsgs').appendChild(typing);
@@ -1072,63 +1072,81 @@ async function sendChat(){
   try{
     let result;
     try{
-      const res=await fetch(`${BACKEND_URL}/gpt`,{
+      // 팀원 /classify API 호출
+      const body = { messages: chatHistory };
+      if(ktasContext) body.ktas_context = ktasContext;  // 첫 응답 이후 재전송
+
+      const res=await fetch(`${BACKEND_URL}/classify`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          symptom: chatHistory.map(m=>`${m.role==='user'?'환자':'AI'}: ${m.content}`).join('\n'),
-          age:     document.getElementById('age').value||'미입력',
-          gender:  selectedGender||'미입력',
-          history: document.getElementById('medHistory').value||'없음',
-          multi_turn: true,
-          turn: chatHistory.filter(m=>m.role==='user').length
-        })
+        body:JSON.stringify(body)
       });
-      if(!res.ok)throw new Error(`GPT 서버 오류 ${res.status}`);
+      if(!res.ok) throw new Error(`서버 오류 ${res.status}`);
       result=await res.json();
-      if(result.error)throw new Error(result.error);
+      if(result.error) throw new Error(result.error);
+
+      // ktas_context 첫 응답에서만 내려옴 → 캐싱
+      if(result.ktas_context) ktasContext = result.ktas_context;
+
     }catch(e){
-      console.warn('GPT 실패, 규칙 기반 사용:',e.message);
-      result=ruleFallback(msg);
+      console.warn('API 실패, 규칙 기반 사용:', e.message);
+      result = { type:'classification', ...ruleFallback(msg) };
     }
 
     typing.style.display='none';
 
-    // AI 응답 히스토리 추가
-    const aiMsg=result.next_question||result.message||'';
-    if(aiMsg) chatHistory.push({role:'assistant',content:aiMsg});
-
-    // 추가 질문이 있으면 질문만 표시 (아직 분류 확정 아님)
-    if(result.next_question && !result.ktas_final){
-      appendBubble(result.next_question,'ai');
+    // ── 추가 질문 ──────────────────────────
+    if(result.type === 'question'){
+      const q = result.question;
+      // 히스토리에 AI 질문 추가 (팀원 API 형식 그대로)
+      chatHistory.push({role:'assistant', content: JSON.stringify({type:'question', question:q})});
+      appendBubble(q,'ai');
       return;
     }
 
-    // 분류 확정
-    detKtas=result.ktas;detDept=result.dept;
-    surveyDone=true;
+    // ── 최종 분류 ──────────────────────────
+    const level  = result.level;
+    const reason = result.reason || '';
+    const cc     = result.chief_complaint || '';
 
-    if(result.symptoms?.length){clearTags();setTags(result.symptoms);}
+    // KTAS → 진료과 매핑
+    const deptByCC = {
+      '흉통':'cardiac','심정지':'cardiac','심계항진':'cardiac',
+      '두통':'neuro','뇌졸중':'neuro','사지 약화':'neuro','실신':'neuro',
+      '복통':'internal','구토':'internal','설사':'internal',
+      '외상':'trauma','골절':'trauma','열상':'trauma',
+      '발열':'peds','소아':'peds',
+      '호흡':'internal','기침':'internal',
+    };
+    detKtas = level;
+    detDept = Object.entries(deptByCC).find(([k])=>cc.includes(k))?.[1] || 'general';
 
+    // KTAS 결과 카드 업데이트
     const kc={1:'#dc2626',2:'#ea580c',3:'#d97706',4:'#16a34a',5:'#3b82f6'};
     const kl={1:'소생',2:'긴급',3:'응급',4:'준응급',5:'비응급'};
+    const deptLabels={cardiac:'심혈관',neuro:'신경과',trauma:'외상',peds:'소아과',internal:'내과',general:'응급'};
 
-    // KTAS 결과 카드
     const ktasEl=document.getElementById('ktasResult');
     ktasEl.classList.add('show');
-    ktasEl.style.borderColor=kc[result.ktas];
-    document.getElementById('ktasBadge').textContent=`KTAS ${result.ktas} · ${kl[result.ktas]}`;
-    document.getElementById('ktasBadge').style.cssText=`background:${kc[result.ktas]}20;color:${kc[result.ktas]};border:1px solid ${kc[result.ktas]}40;padding:3px 14px;border-radius:99px;font-size:var(--fs-sm);font-weight:700;`;
-    document.getElementById('ktasDept').textContent=result.dept_label||'응급';
-    document.getElementById('ktasReason').textContent=result.ktas_reason||'';
+    ktasEl.style.borderColor=kc[level];
+    document.getElementById('ktasBadge').textContent=`KTAS ${level} · ${kl[level]}`;
+    document.getElementById('ktasBadge').style.cssText=`background:${kc[level]}20;color:${kc[level]};border:1px solid ${kc[level]}40;padding:3px 14px;border-radius:99px;font-size:var(--fs-sm);font-weight:700;`;
+    document.getElementById('ktasDept').textContent=deptLabels[detDept]||'응급';
+    document.getElementById('ktasReason').textContent=reason;
 
-    appendBubble(`<strong>KTAS ${result.ktas}</strong> · ${kl[result.ktas]}<br><span style="color:var(--text-hint);font-size:var(--fs-xs);">${result.ktas_reason||''}</span><br><span style="color:#1d4ed8;font-size:var(--fs-xs);">필요 진료과: ${result.dept_label}</span>`,'sys');
-    if(result.message) appendBubble(result.message,'ai');
+    appendBubble(
+      `<strong>KTAS ${level}</strong> · ${kl[level]}<br>` +
+      `<span style="color:var(--text-hint);font-size:var(--fs-xs);">${reason}</span><br>` +
+      (cc ? `<span style="color:#1d4ed8;font-size:var(--fs-xs);">주호소: ${cc}</span>` : ''),
+      'sys'
+    );
 
-    if(result.critical){
+    if(level <= 2){
       appendBubble('🚨 즉각적인 처치가 필요합니다. 119에 신고하거나 최근접 응급실로 이동하세요.','crit');
       setTimeout(()=>runSearch(),1000);
     }
+
+    surveyDone=true;
 
   }catch(e){
     typing.style.display='none';
