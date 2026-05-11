@@ -1096,18 +1096,26 @@ async function sendChat(){
     typing.style.display='none';
 
     // ── 추가 질문 ──────────────────────────
-    if(result.type === 'question'){
+    // type:"question" 이거나 question 필드만 있는 경우 모두 처리
+    if(result.type === 'question' || (result.question && !result.level)){
       const q = result.question;
-      // 히스토리에 AI 질문 추가 (팀원 API 형식 그대로)
       chatHistory.push({role:'assistant', content: JSON.stringify({type:'question', question:q})});
       appendBubble(q,'ai');
       return;
     }
 
     // ── 최종 분류 ──────────────────────────
-    const level  = result.level;
+    // level을 반드시 정수로 변환 (문자열로 올 수도 있음)
+    const level  = parseInt(result.level, 10);
     const reason = result.reason || '';
     const cc     = result.chief_complaint || '';
+
+    // level 유효성 검사
+    if(isNaN(level) || level < 1 || level > 5){
+      appendBubble('분류 결과를 받지 못했습니다. 다시 증상을 입력해 주세요.','ai');
+      console.warn('잘못된 level 값:', result);
+      return;
+    }
 
     // KTAS → 진료과 매핑
     const deptByCC = {
