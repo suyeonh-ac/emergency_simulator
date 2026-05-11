@@ -1064,10 +1064,13 @@ async function sendChat(){
   // 히스토리에 사용자 메시지 추가 (팀원 API 형식: role/content)
   chatHistory.push({role:'user', content:msg});
 
-  const typing=document.getElementById('typing');
-  document.getElementById('chatMsgs').appendChild(typing);
-  typing.style.display='block';
-  document.getElementById('chatMsgs').scrollTop=9999;
+  // 로딩 말풍선을 매번 새로 생성 (기존 요소 재사용 시 appendChild 오류 발생)
+  const chatMsgsEl = document.getElementById('chatMsgs');
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'typing-wrap';
+  typingDiv.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+  chatMsgsEl.appendChild(typingDiv);
+  chatMsgsEl.scrollTop = 9999;
 
   try{
     let result;
@@ -1093,7 +1096,7 @@ async function sendChat(){
       result = { type:'classification', ...ruleFallback(msg) };
     }
 
-    typing.style.display='none';
+    typingDiv.remove();
 
     // ── 추가 질문 ──────────────────────────
     // type:"question" 이거나 question 필드만 있는 경우 모두 처리
@@ -1159,7 +1162,7 @@ async function sendChat(){
     surveyDone=true;
 
   }catch(e){
-    typing.style.display='none';
+    typingDiv.remove();
     appendBubble('분석 오류가 발생했습니다. 증상 태그를 직접 선택해 주세요.','ai');
     console.error(e);
   }
