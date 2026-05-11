@@ -46,7 +46,12 @@ from dotenv import load_dotenv
 # ─────────────────────────────────────────
 load_dotenv()
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=[
+    "https://suyeonh-ac.github.io",
+    "http://localhost:5500",
+    "http://localhost:3000",
+    "http://127.0.0.1:5500",
+])
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -371,4 +376,5 @@ def health():
 if __name__ == "__main__":
     print("🚀 서버 시작: http://localhost:5000")
     print("   index.html을 브라우저로 여세요")
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

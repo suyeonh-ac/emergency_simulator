@@ -1105,10 +1105,11 @@ async function sendChat(){
     }
 
     // ── 최종 분류 ──────────────────────────
-    // level을 반드시 정수로 변환 (문자열로 올 수도 있음)
-    const level  = parseInt(result.level, 10);
-    const reason = result.reason || '';
+    // 팀원 API: level 대신 ktas 필드로 반환
+    const level  = parseInt(result.ktas ?? result.level, 10);
+    const reason = result.ktas_reason || result.reason || '';
     const cc     = result.chief_complaint || '';
+    const deptLabelFromAPI = result.dept_label || '';
 
     // level 유효성 검사
     if(isNaN(level) || level < 1 || level > 5){
@@ -1127,19 +1128,20 @@ async function sendChat(){
       '호흡':'internal','기침':'internal',
     };
     detKtas = level;
-    detDept = Object.entries(deptByCC).find(([k])=>cc.includes(k))?.[1] || 'general';
+    detDept = result.dept || Object.entries(deptByCC).find(([k])=>cc.includes(k))?.[1] || 'general';
 
     // KTAS 결과 카드 업데이트
     const kc={1:'#dc2626',2:'#ea580c',3:'#d97706',4:'#16a34a',5:'#3b82f6'};
     const kl={1:'소생',2:'긴급',3:'응급',4:'준응급',5:'비응급'};
     const deptLabels={cardiac:'심혈관',neuro:'신경과',trauma:'외상',peds:'소아과',internal:'내과',general:'응급'};
+    const deptLabel = deptLabelFromAPI || deptLabels[detDept] || '응급';
 
     const ktasEl=document.getElementById('ktasResult');
     ktasEl.classList.add('show');
     ktasEl.style.borderColor=kc[level];
     document.getElementById('ktasBadge').textContent=`KTAS ${level} · ${kl[level]}`;
     document.getElementById('ktasBadge').style.cssText=`background:${kc[level]}20;color:${kc[level]};border:1px solid ${kc[level]}40;padding:3px 14px;border-radius:99px;font-size:var(--fs-sm);font-weight:700;`;
-    document.getElementById('ktasDept').textContent=deptLabels[detDept]||'응급';
+    document.getElementById('ktasDept').textContent=deptLabel;
     document.getElementById('ktasReason').textContent=reason;
 
     appendBubble(
