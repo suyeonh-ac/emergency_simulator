@@ -35,6 +35,7 @@ KTAS 중증도 분류 챗봇 - 백엔드 서버 (멀티턴 대화 버전)
 import json
 import re
 import os
+import requests
 from difflib import SequenceMatcher
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -54,6 +55,9 @@ CORS(app, origins=[
 ])
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+CLOVA_CLIENT_ID     = os.getenv("CLOVA_CLIENT_ID")
+CLOVA_CLIENT_SECRET = os.getenv("CLOVA_CLIENT_SECRET")
 
 # 추가 질문 최대 횟수
 MAX_QUESTIONS = 3
@@ -292,6 +296,59 @@ def classify_with_gpt(messages: list, ktas_context: str, question_count: int) ->
 # ─────────────────────────────────────────
 # Flask 라우트
 # ─────────────────────────────────────────
+
+@app.route("/stt", methods=["POST"])
+def stt():
+    """
+    CLOVA Speech-to-Text API 프록시.
+    프론트엔드에서 직접 CLOVA를 호출하면 CORS 차단되므로
+    백엔드가 대신 호출해 텍스트를 반환합니다.
+
+    Request : multipart/form-data  { audio: <audio blob> }
+    Response: { "text": "인식된 텍스트" }
+    """
+    audio_file = request.files.get("audio")
+    if not audio_file:
+        return jsonify({"error": "오디오 파일이 없습니다."}), 400
+
+    if not CLOVA_CLIENT_ID or not CLOVA_CLIENT_SECRET:
+        print("❌ CLOVA 환경변수 미설정 (CLOVA_CLIENT_ID / CLOVA_CLIENT_SECRET)")
+        return jsonify({"error": "CLOVA API 키가 설정되지 않았습니다."}), 500
+
+    # 업로드된 오디오 MIME 타입 결정
+    # MediaRecorder는 webm 또는 ogg 를 사용하므로 그대로 전달
+    content_type = audio_file.content_type or "application/octet-stream"
+
+    try:
+        headers = {
+            "X-NCP-APIGW-API-KEY-ID": CLOVA_CLIENT_ID,
+            "X-NCP-APIGW-API-KEY":    CLOVA_CLIENT_SECRET,
+            "Content-Type":           content_type,
+        }
+        resp = requests.post(
+            "https://naveropenapi.apigw.ntruss.com/recog/v1/stt?lang=Kor",
+            headers=headers,
+            data=audio_file.read(),
+            timeout=15,
+        )
+        resp.raise_for_status()
+
+        # CLOVA 응답 형식: {"result": "SUCCESS", "message": "인식 텍스트"}
+        clova_data = resp.json()
+        recognized = clova_data.get("message", "").strip()
+        print(f"✅ CLOVA STT 인식: {recognized!r}")
+        return jsonify({"text": recognized})
+
+    except requests.exceptions.Timeout:
+        print("❌ CLOVA STT 타임아웃")
+        return jsonify({"error": "CLOVA 응답 시간 초과"}), 504
+    except requests.exceptions.HTTPError as e:
+        print(f"❌ CLOVA STT HTTP 오류: {e.response.status_code} {e.response.text}")
+        return jsonify({"error": f"CLOVA 오류: {e.response.status_code}"}), 502
+    except Exception as e:
+        print(f"❌ CLOVA STT 예외: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/classify", methods=["POST"])
 def classify():
