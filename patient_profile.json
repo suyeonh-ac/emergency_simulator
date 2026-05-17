@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "last_updated": "",
+  "basic": {
+    "age": null,
+    "gender": null,
+    "blood_type": null
+  },
+  "medical": {
+    "conditions": [],
+    "medications": [],
+    "allergies": [],
+    "regular_hospital": {
+      "name": null,
+      "department": null
+    }
+  },
+  "vitals_latest": {
+    "hr_bpm": null,
+    "spo2_pct": null,
+    "bp_systolic": null,
+    "temperature_c": null,
+    "source": "manual",
+    "timestamp": null
+  }
+}

@@ -242,8 +242,44 @@ SYSTEM_TEMPLATE = """당신은 KTAS(한국형 응급환자 분류도구, 2021) �
 {{"type": "question", "question": "<질문 내용을 환자에게 직접 묻는 말투로>"}}
 
 분류 가능한 경우:
-{{"type": "classification", "level": <1~5>, "reason": "<분류 근거 한 문장>", "chief_complaint": "<해당 주호소명>"}}
+{{"type": "classification", "level": <1~5>, "reason": "<분류 근거 한 문장>", "chief_complaint": "<해당 주호소명>", "specialty": "<필요 진료과 (예: 응급의학과, 심혈관내과, 신경과, 외상센터, 소아과 등)>"}}
 """
+
+
+# ─────────────────────────────────────────
+# Twin 프로파일 컨텍스트
+# ─────────────────────────────────────────
+
+def build_twin_context(profile: dict) -> str:
+    """Twin 프로파일 dict를 GPT system prompt용 컨텍스트 텍스트로 변환."""
+    if not profile:
+        return ""
+
+    lines = ["[환자 Twin 프로파일 — 아래 정보를 분류에 반드시 반영하세요]"]
+
+    if profile.get("age"):
+        lines.append(f"- 나이: {profile['age']}세, 성별: {profile.get('gender', '미상')}")
+
+    conditions = profile.get("conditions", [])
+    if conditions:
+        lines.append(f"- 기저질환: {', '.join(conditions)}")
+
+    medications = profile.get("medications", [])
+    if medications:
+        lines.append(f"- 복용약: {', '.join(medications)}")
+
+    allergies = profile.get("allergies", [])
+    if allergies:
+        lines.append(f"- 알레르기: {', '.join(allergies)}")
+
+    hr = profile.get("hr_bpm")
+    if hr:
+        lines.append(f"- 최근 심박수: {hr}bpm")
+
+    # Twin 프로파일이 있으면 보수적 분류 지침을 함께 명시
+    lines.append("- 위 기저질환·복용약을 고려해 합병증 위험이 있으면 한 단계 보수적으로(더 높은 중증도로) 판정하세요")
+
+    return "\n".join(lines)
 
 
 # ─────────────────────────────────────────
@@ -264,14 +300,19 @@ def count_questions(messages: list) -> int:
     return count
 
 
-def classify_with_gpt(messages: list, ktas_context: str, question_count: int) -> dict:
+def classify_with_gpt(messages: list, ktas_context: str, question_count: int, twin_context: str = "") -> dict:
     """
-    멀티턴 대화 히스토리와 KTAS 컨텍스트를 바탕으로 GPT가 분류 또는 추가 질문을 반환합니다.
+    멀티턴 대화 히스토리와 KTAS 컨텍스트(+선택적 Twin 컨텍스트)를 바탕으로
+    GPT가 분류 또는 추가 질문을 반환합니다.
     """
     system_prompt = SYSTEM_TEMPLATE.format(
         max_questions=MAX_QUESTIONS,
         ktas_context=ktas_context,
     )
+
+    # Twin 프로파일이 있으면 system prompt 앞에 prepend
+    if twin_context:
+        system_prompt = twin_context + "\n\n" + system_prompt
 
     # 최대 질문 횟수에 도달했으면 강제 분류 지시
     if question_count >= MAX_QUESTIONS:
@@ -371,6 +412,7 @@ def classify():
     body = request.get_json(force=True, silent=True) or {}
     messages: list = body.get("messages", [])
     ktas_context: str = body.get("ktas_context", "").strip()
+    twin_profile: dict = body.get("twin_profile", None)  # Twin 프로파일 (선택)
 
     # ── 입력 검증 ──────────────────────────
     if not messages:
@@ -396,9 +438,12 @@ def classify():
     # ── 현재까지 질문 횟수 카운트 ────────────
     question_count = count_questions(messages)
 
+    # ── Twin 컨텍스트 빌드 (없으면 빈 문자열) ─
+    twin_context = build_twin_context(twin_profile)
+
     # ── GPT 호출 ────────────────────────────
     try:
-        result = classify_with_gpt(messages, ktas_context, question_count)
+        result = classify_with_gpt(messages, ktas_context, question_count, twin_context)
     except Exception as e:
         print(f"❌ GPT 오류: {e}")
         return jsonify({"error": str(e)}), 500
@@ -417,6 +462,11 @@ def classify():
 
     if result_type == "classification" and matched_complaints:
         result["matched_complaints"] = matched_complaints
+
+    # ── Twin 사용 여부 및 specialty 기본값 ──
+    if result_type == "classification":
+        result["twin_used"] = bool(twin_profile)
+        result.setdefault("specialty", "응급의학과")
 
     return jsonify(result)
 

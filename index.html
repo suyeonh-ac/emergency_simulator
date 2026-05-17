@@ -694,6 +694,76 @@ textarea{resize:none;height:60px;line-height:1.5;}
         응급실 검색
       </div>
 
+      <!-- Twin 프로파일 토글 버튼 -->
+      <button
+        type="button"
+        onclick="toggleTwinPanel()"
+        style="
+          width: 100%;
+          padding: 10px 16px;
+          margin-bottom: 10px;
+          background: transparent;
+          border: 1.5px dashed #7F77DD;
+          border-radius: 10px;
+          color: #7F77DD;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          text-align: left;
+        ">
+        👤 나의 건강 프로파일 설정 (Twin) — 최초 1회 입력 후 자동 적용
+      </button>
+
+      <!-- Twin 입력 패널 (기본 숨김) -->
+      <div id="twin-profile-panel" style="display:none; margin-bottom:16px; padding:14px 16px; background:var(--bg-secondary, #f5f5f5); border-radius:12px; border:0.5px solid #ddd;">
+        <p style="font-size:12px; color:#888; margin-bottom:12px;">
+          한 번 저장하면 응급 시 자동으로 AI 분류에 반영됩니다.
+        </p>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+          <div>
+            <label style="font-size:12px; color:#555;">나이</label>
+            <input type="number" id="twin-age" placeholder="예: 67"
+              style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; margin-top:4px;">
+          </div>
+          <div>
+            <label style="font-size:12px; color:#555;">성별</label>
+            <select id="twin-gender"
+              style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; margin-top:4px;">
+              <option value="">선택</option>
+              <option value="남">남</option>
+              <option value="여">여</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px;">
+          <label style="font-size:12px; color:#555;">기저질환 (쉼표로 구분)</label>
+          <input type="text" id="twin-conditions" placeholder="예: 고혈압, 당뇨, 관상동맥질환"
+            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; margin-top:4px;">
+        </div>
+
+        <div style="margin-bottom:8px;">
+          <label style="font-size:12px; color:#555;">복용 중인 약 (쉼표로 구분)</label>
+          <input type="text" id="twin-medications" placeholder="예: 아스피린 100mg, 메트포르민"
+            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; margin-top:4px;">
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label style="font-size:12px; color:#555;">알레르기 (쉼표로 구분)</label>
+          <input type="text" id="twin-allergies" placeholder="예: 페니실린, 조영제"
+            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; margin-top:4px;">
+        </div>
+
+        <div style="display:flex; align-items:center; gap:12px;">
+          <button type="button" onclick="handleTwinSave()"
+            style="padding:8px 20px; background:#7F77DD; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer;">
+            저장
+          </button>
+          <span id="twin-save-status" style="font-size:12px;"></span>
+        </div>
+      </div>
+
       <div class="form-row2">
         <div class="field">
           <label>나이 <span>*</span></label>
@@ -1078,6 +1148,8 @@ async function sendChat(){
       // 팀원 /classify API 호출
       const body = { messages: chatHistory };
       if(ktasContext) body.ktas_context = ktasContext;  // 첫 응답 이후 재전송
+      const twinPayload = (typeof buildTwinPayload === 'function') ? buildTwinPayload() : null;
+      if(twinPayload) body.twin_profile = twinPayload;   // Twin 프로파일 (있을 때만)
 
       const res=await fetch(`${BACKEND_URL}/classify`,{
         method:'POST',
@@ -1147,10 +1219,19 @@ async function sendChat(){
     document.getElementById('ktasDept').textContent=deptLabel;
     document.getElementById('ktasReason').textContent=reason;
 
+    const specialtyText = result.specialty
+      ? `<br><span style="color:#7F77DD;font-size:var(--fs-xs);">🏥 필요 진료과: ${result.specialty}</span>`
+      : '';
+    const twinUsedText = result.twin_used
+      ? `<br><span style="color:#1D9E75;font-size:var(--fs-xs);">👤 Twin 프로파일 반영됨</span>`
+      : '';
+
     appendBubble(
       `<strong>KTAS ${level}</strong> · ${kl[level]}<br>` +
       `<span style="color:var(--text-hint);font-size:var(--fs-xs);">${reason}</span><br>` +
-      (cc ? `<span style="color:#1d4ed8;font-size:var(--fs-xs);">주호소: ${cc}</span>` : ''),
+      (cc ? `<span style="color:#1d4ed8;font-size:var(--fs-xs);">주호소: ${cc}</span>` : '') +
+      specialtyText +
+      twinUsedText,
       'sys'
     );
 
@@ -1167,6 +1248,83 @@ async function sendChat(){
     console.error(e);
   }
 }
+
+// ── Patient Twin Profile ─────────────────────────────────────
+
+function saveTwinProfile(profileData) {
+    localStorage.setItem('patient_twin_profile', JSON.stringify({
+        ...profileData,
+        last_updated: new Date().toISOString().split('T')[0]
+    }));
+}
+
+function loadTwinProfile() {
+    const raw = localStorage.getItem('patient_twin_profile');
+    return raw ? JSON.parse(raw) : null;
+}
+
+function buildTwinPayload() {
+    const profile = loadTwinProfile();
+    if (!profile) return null;
+    return {
+        age:        profile.basic?.age || null,
+        gender:     profile.basic?.gender || null,
+        conditions: profile.medical?.conditions || [],
+        medications:profile.medical?.medications || [],
+        allergies:  profile.medical?.allergies || [],
+        hr_bpm:     profile.vitals_latest?.hr_bpm || null
+    };
+}
+
+function toggleTwinPanel() {
+    const panel = document.getElementById('twin-profile-panel');
+    if (!panel) return;
+    const isHidden = panel.style.display === 'none' || panel.style.display === '';
+    panel.style.display = isHidden ? 'block' : 'none';
+
+    if (isHidden) {
+        const profile = loadTwinProfile();
+        if (profile) {
+            const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
+            setVal('twin-age',         profile.basic?.age);
+            setVal('twin-gender',      profile.basic?.gender);
+            setVal('twin-conditions',  (profile.medical?.conditions  || []).join(', '));
+            setVal('twin-medications', (profile.medical?.medications || []).join(', '));
+            setVal('twin-allergies',   (profile.medical?.allergies   || []).join(', '));
+        }
+    }
+}
+
+function handleTwinSave() {
+    const getVal = (id) => (document.getElementById(id)?.value || '');
+    const splitTrim = (str) => str.split(',').map(s => s.trim()).filter(Boolean);
+
+    const profileData = {
+        basic: {
+            age:    parseInt(getVal('twin-age')) || null,
+            gender: getVal('twin-gender') || null
+        },
+        medical: {
+            conditions:  splitTrim(getVal('twin-conditions')),
+            medications: splitTrim(getVal('twin-medications')),
+            allergies:   splitTrim(getVal('twin-allergies'))
+        },
+        vitals_latest: {
+            source: 'manual',
+            timestamp: new Date().toISOString()
+        }
+    };
+
+    saveTwinProfile(profileData);
+
+    const status = document.getElementById('twin-save-status');
+    if (status) {
+        status.textContent = '✓ 저장 완료';
+        status.style.color = '#1D9E75';
+        setTimeout(() => { status.textContent = ''; }, 2500);
+    }
+}
+
 document.getElementById('chatIn').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
 
 // 규칙 기반 폴백
