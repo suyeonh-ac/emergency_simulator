@@ -7,7 +7,7 @@
 <!-- Pretendard 폰트 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<!-- QRCode.js는 openQrModal에서 동적 로드 -->
 <style>
 :root {
   --red:#e32d2d; --red-light:#fff0f0; --red-dark:#b71c1c;
@@ -442,7 +442,7 @@ textarea{resize:none;height:60px;line-height:1.5;}
   width:32px;height:32px;font-size:16px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;color:var(--text-sub);flex-shrink:0;
 }
-.route-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.route-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;}
 .route-btn{
   background:var(--bg);border:2.5px solid var(--border);border-radius:14px;
   padding:18px 8px;display:flex;flex-direction:column;align-items:center;gap:7px;
@@ -606,152 +606,112 @@ textarea{resize:none;height:60px;line-height:1.5;}
   </div>
 </header>
 
-<!-- 사용자 선택 바 -->
-<div id="user-selector-bar" style="
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  margin-top: 54px;
-  background: var(--bg-secondary, #f5f5f5);
-  border-bottom: 0.5px solid #e0e0e0;
-  flex-wrap: wrap;
-  position: relative;
-  z-index: 200;
+<!-- ── 사용자 프로필 바 (통합) ─────────────────────────────── -->
+<div id="profile-bar" style="
+  margin-top:54px;
+  background:#fff;
+  border-bottom:1px solid #e4e4e4;
+  position:relative;
+  z-index:200;
 ">
-  <span style="font-size: 12px; color: #888; white-space: nowrap;">사용자 선택:</span>
-  <select id="user-select" onchange="switchUser(this.value)" style="
-    padding: 6px 10px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 13px;
-    flex: 1;
-    min-width: 120px;
-    max-width: 200px;
-  ">
-    <!-- JS로 동적 생성 -->
-  </select>
-  <button onclick="openAddUserModal()" style="
-    padding: 6px 14px;
-    background: #7F77DD;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-  ">+ 사용자 추가</button>
-  <button onclick="openEditProfileModal()" style="
-    padding: 6px 14px;
-    background: transparent;
-    color: #7F77DD;
-    border: 1.5px solid #7F77DD;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-  ">프로파일 수정</button>
-</div>
+  <!-- 메인 프로필 행 -->
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;flex-wrap:wrap;">
 
-<!-- 웨어러블 바이탈 위젯 -->
-<div id="vitals-widget" style="
-  display: flex;
-  gap: 10px;
-  padding: 8px 16px;
-  background: var(--bg-secondary, #f5f5f5);
-  border-bottom: 0.5px solid #e0e0e0;
-  flex-wrap: wrap;
-  align-items: center;
-  position: relative;
-  z-index: 200;
-">
-  <span style="font-size: 11px; color: #888;">📱 건강 데이터</span>
+    <!-- 아바타 + 이름/정보 -->
+    <div id="profile-avatar" onclick="toggleProfileDetail()" style="
+      width:38px;height:38px;border-radius:50%;
+      background:linear-gradient(135deg,#7F77DD,#5c54c4);
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;font-size:16px;font-weight:700;flex-shrink:0;
+      cursor:pointer;box-shadow:0 2px 8px rgba(127,119,221,.35);
+      border:2px solid #fff;
+    ">?</div>
 
-  <div class="vital-chip" id="vital-hr" style="
-    display: flex; align-items: center; gap: 4px;
-    background: #fff; border: 1px solid #eee;
-    border-radius: 20px; padding: 4px 10px;
-    font-size: 12px; color: #333;
-  ">
-    ❤️ <span id="vital-hr-val">--</span> bpm
+    <div onclick="toggleProfileDetail()" style="flex:1;min-width:0;cursor:pointer;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span id="profile-name-label" style="font-size:14px;font-weight:700;color:#1a1a1a;">프로필 없음</span>
+        <span id="profile-ktas-hint" style="display:none;font-size:10px;padding:1px 6px;border-radius:4px;background:#fef2f2;color:#dc2626;font-weight:600;border:1px solid #fca5a5;"></span>
+      </div>
+      <div id="profile-sub-label" style="font-size:11px;color:#888;margin-top:1px;">프로필을 등록하면 맞춤 추천을 받을 수 있어요</div>
+    </div>
+
+    <!-- 바이탈 칩 (가로 스크롤) -->
+    <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+      <div id="vital-hr" style="display:flex;align-items:center;gap:3px;background:#fff5f5;border:1px solid #fca5a5;border-radius:14px;padding:3px 9px;font-size:11px;color:#dc2626;">
+        ❤️ <span id="vital-hr-val">--</span>
+      </div>
+      <div id="vital-spo2" style="display:flex;align-items:center;gap:3px;background:#eff6ff;border:1px solid #93c5fd;border-radius:14px;padding:3px 9px;font-size:11px;color:#1d4ed8;">
+        🫁 <span id="vital-spo2-val">--</span>%
+      </div>
+      <div id="vital-bp" style="display:flex;align-items:center;gap:3px;background:#fdf4ff;border:1px solid #d8b4fe;border-radius:14px;padding:3px 9px;font-size:11px;color:#7e22ce;">
+        🩸 <span id="vital-bp-val">--</span>
+      </div>
+      <button onclick="openVitalsInput()" title="바이탈 입력" style="
+        width:28px;height:28px;border-radius:50%;background:#f3f4f6;border:1px solid #e5e7eb;
+        display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;
+        flex-shrink:0;
+      ">✏️</button>
+    </div>
+
+    <!-- 액션 버튼 -->
+    <div style="display:flex;gap:6px;flex-shrink:0;">
+      <button onclick="openAddUserModal()" style="
+        padding:5px 10px;background:#7F77DD;color:#fff;border:none;
+        border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;
+      ">+ 추가</button>
+      <button onclick="openEditProfileModal()" style="
+        padding:5px 10px;background:transparent;color:#7F77DD;
+        border:1.5px solid #7F77DD;border-radius:8px;font-size:11px;font-weight:600;
+        cursor:pointer;white-space:nowrap;
+      ">수정</button>
+    </div>
   </div>
 
-  <div class="vital-chip" id="vital-spo2" style="
-    display: flex; align-items: center; gap: 4px;
-    background: #fff; border: 1px solid #eee;
-    border-radius: 20px; padding: 4px 10px;
-    font-size: 12px; color: #333;
-  ">
-    🫁 <span id="vital-spo2-val">--</span> %
-  </div>
+  <!-- 펼침 패널 (기저질환·바이탈 상세) -->
+  <div id="profile-detail-panel" style="display:none;border-top:1px solid #f0f0f0;padding:10px 16px 12px;background:#fafafa;">
 
-  <div class="vital-chip" id="vital-bp" style="
-    display: flex; align-items: center; gap: 4px;
-    background: #fff; border: 1px solid #eee;
-    border-radius: 20px; padding: 4px 10px;
-    font-size: 12px; color: #333;
-  ">
-    🩸 <span id="vital-bp-val">--/--</span> mmHg
-  </div>
+    <!-- 사용자 전환 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-size:11px;color:#888;white-space:nowrap;">사용자:</span>
+      <select id="user-select" onchange="switchUser(this.value)" style="
+        flex:1;max-width:200px;padding:5px 8px;border:1px solid #ddd;
+        border-radius:8px;font-size:12px;background:#fff;
+      "></select>
+    </div>
 
-  <button onclick="openVitalsInput()" style="
-    padding: 4px 10px;
-    background: transparent;
-    border: 1px solid #7F77DD;
-    border-radius: 20px;
-    font-size: 11px;
-    color: #7F77DD;
-    cursor: pointer;
-  ">수동 입력</button>
+    <!-- 기저질환·복용약 태그 -->
+    <div id="profile-conditions-row" style="display:none;margin-bottom:8px;">
+      <div style="font-size:10px;color:#888;margin-bottom:4px;font-weight:600;letter-spacing:.04em;">기저질환 / 복용약</div>
+      <div id="profile-cond-tags" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+    </div>
 
-  <span id="vitals-source-badge" style="font-size: 11px; color: #aaa;"></span>
-</div>
-
-<!-- 바이탈 수동 입력 패널 (숨김) -->
-<div id="vitals-input-panel" style="
-  display: none;
-  padding: 12px 16px;
-  background: #fafafa;
-  border-bottom: 0.5px solid #e0e0e0;
-  position: relative;
-  z-index: 200;
-">
-  <p style="font-size: 11px; color: #888; margin-bottom: 10px;">
-    📱 실제 서비스에서는 Apple Health / Samsung Health에서 자동 연동됩니다.
-    테스트를 위해 수동으로 입력해주세요.
-  </p>
-  <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
-    <div>
-      <label style="font-size: 11px; color: #555;">심박수 (bpm)</label>
-      <input type="number" id="input-hr" placeholder="예: 88"
-        style="display: block; width: 90px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; margin-top: 2px;">
+    <!-- 바이탈 수동 입력 패널 (inline) -->
+    <div id="vitals-input-panel" style="display:none;margin-top:6px;">
+      <div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:600;letter-spacing:.04em;">바이탈 직접 입력</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <label style="font-size:10px;color:#555;">심박(bpm)</label>
+          <input type="number" id="input-hr" placeholder="88" style="display:block;width:72px;padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:12px;margin-top:2px;">
+        </div>
+        <div>
+          <label style="font-size:10px;color:#555;">SpO₂(%)</label>
+          <input type="number" id="input-spo2" placeholder="97" style="display:block;width:72px;padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:12px;margin-top:2px;">
+        </div>
+        <div>
+          <label style="font-size:10px;color:#555;">수축기</label>
+          <input type="number" id="input-bp-sys" placeholder="120" style="display:block;width:72px;padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:12px;margin-top:2px;">
+        </div>
+        <div>
+          <label style="font-size:10px;color:#555;">이완기</label>
+          <input type="number" id="input-bp-dia" placeholder="80" style="display:block;width:72px;padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:12px;margin-top:2px;">
+        </div>
+        <button onclick="applyVitalsInput()" style="
+          padding:5px 12px;background:#7F77DD;color:#fff;border:none;
+          border-radius:6px;font-size:12px;cursor:pointer;
+        ">적용</button>
+      </div>
+      <span id="vitals-source-badge" style="font-size:10px;color:#aaa;display:block;margin-top:4px;"></span>
     </div>
-    <div>
-      <label style="font-size: 11px; color: #555;">산소포화도 (%)</label>
-      <input type="number" id="input-spo2" placeholder="예: 97"
-        style="display: block; width: 90px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; margin-top: 2px;">
-    </div>
-    <div>
-      <label style="font-size: 11px; color: #555;">혈압 (수축기)</label>
-      <input type="number" id="input-bp-sys" placeholder="예: 135"
-        style="display: block; width: 90px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; margin-top: 2px;">
-    </div>
-    <div>
-      <label style="font-size: 11px; color: #555;">혈압 (이완기)</label>
-      <input type="number" id="input-bp-dia" placeholder="예: 85"
-        style="display: block; width: 90px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; margin-top: 2px;">
-    </div>
-    <button onclick="applyVitalsInput()" style="
-      padding: 6px 14px;
-      background: #7F77DD;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-    ">적용</button>
   </div>
 </div>
 
@@ -1425,14 +1385,66 @@ function switchUser(uid) {
 
 function updateProfileBadge() {
   const profile = getActiveProfile();
-  const badge = document.getElementById('active-profile-badge');
-  if (!badge) return;
-  if (profile) {
-    badge.textContent = `👤 ${profile.name} (${profile.age || '?'}세 · ${profile.gender || '?'})`;
-    badge.style.display = 'inline-block';
+  const avatarEl   = document.getElementById('profile-avatar');
+  const nameEl     = document.getElementById('profile-name-label');
+  const subEl      = document.getElementById('profile-sub-label');
+  const condRow    = document.getElementById('profile-conditions-row');
+  const condTags   = document.getElementById('profile-cond-tags');
+  const ktasHint   = document.getElementById('profile-ktas-hint');
+
+  if(!nameEl) return;
+
+  if(profile){
+    // 아바타 이니셜
+    const initial = (profile.name||'?')[0].toUpperCase();
+    if(avatarEl){ avatarEl.textContent = initial; }
+
+    // 이름 + 서브 라벨
+    nameEl.textContent = `${profile.name} · ${profile.age||'?'}세 · ${profile.gender||'?'}`;
+    const regHosp = (() => {
+      const r = profile.regular_hospital;
+      if(!r) return null;
+      return typeof r==='object' ? r.name : r;
+    })();
+    subEl.textContent = regHosp
+      ? `정기병원: ${regHosp}` + (profile.conditions?.length ? ` · 기저질환 ${profile.conditions.length}개` : '')
+      : (profile.conditions?.length ? `기저질환: ${profile.conditions.join(', ')}` : '건강 정보 없음');
+
+    // 기저질환·복용약 태그
+    const allTags = [...(profile.conditions||[]).map(c=>({t:c,color:'#fef2f2',tc:'#dc2626',bc:'#fca5a5'})),
+                     ...(profile.medications||[]).map(m=>({t:m,color:'#eff6ff',tc:'#1d4ed8',bc:'#93c5fd'})),
+                     ...(profile.allergies||[]).map(a=>({t:'⚠️'+a,color:'#fff7ed',tc:'#c2410c',bc:'#fdba74'}))];
+    if(allTags.length && condTags){
+      condRow.style.display = 'block';
+      condTags.innerHTML = allTags.map(tag=>
+        `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;
+         background:${tag.color};color:${tag.tc};border:1px solid ${tag.bc};">${tag.t}</span>`
+      ).join('');
+    } else if(condRow){
+      condRow.style.display = 'none';
+    }
+
+    // KTAS 힌트 (기저질환 있으면 표시)
+    if(ktasHint && profile.conditions?.length){
+      ktasHint.textContent = '보수적 판정';
+      ktasHint.style.display = 'inline-block';
+    } else if(ktasHint){
+      ktasHint.style.display = 'none';
+    }
   } else {
-    badge.style.display = 'none';
+    if(avatarEl) avatarEl.textContent = '?';
+    nameEl.textContent = '프로필 없음';
+    subEl.textContent = '프로필을 등록하면 맞춤 추천을 받을 수 있어요';
+    if(condRow) condRow.style.display = 'none';
+    if(ktasHint) ktasHint.style.display = 'none';
   }
+}
+
+function toggleProfileDetail(){
+  const panel = document.getElementById('profile-detail-panel');
+  if(!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  requestAnimationFrame(updateAppHeight);
 }
 
 function openAddUserModal() {
@@ -1507,10 +1519,12 @@ document.addEventListener('DOMContentLoaded', () => {
 let currentVitals = { hr: null, spo2: null, bp_sys: null, bp_dia: null, source: 'none' };
 
 function openVitalsInput() {
+  const detail = document.getElementById('profile-detail-panel');
+  if(detail && detail.style.display === 'none') detail.style.display = 'block';
   const panel = document.getElementById('vitals-input-panel');
   if (!panel) return;
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-  updateAppHeight();
+  requestAnimationFrame(updateAppHeight);
 }
 
 function applyVitalsInput() {
@@ -1651,43 +1665,51 @@ ${profile ? `👤 <strong>${profile.name}</strong> 님의 프로파일 로드됨
 function showPanicHospitalCard(profile) {
   const specialty = getSpecialtyFromConditions(profile?.conditions || []);
 
-  const cardHtml = `
-<div style="
-  background: #fff0f0;
-  border: 2px solid #D85A30;
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-top: 8px;
-">
-  <div style="font-size: 13px; font-weight: 600; color: #D85A30; margin-bottom: 6px;">
-    🚨 즉시 이동 추천 병원
-  </div>
-  <div style="font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px;">
-    ○○대학교병원 응급센터
-  </div>
-  <div style="font-size: 12px; color: #555; margin-bottom: 8px;">
-    📍 현재 위치에서 2.3km · 예상 도착 8분
-  </div>
-  ${specialty ? `<div style="font-size: 12px; color: #1D9E75; margin-bottom: 8px;">
-    ✅ <strong>${specialty}</strong> 진료 가능 (기저질환 매칭)
-  </div>` : ''}
-  <div style="font-size: 11px; color: #888; margin-bottom: 10px;">
-    대기 환자 3명 · 응급 병상 가용
-  </div>
-  <button onclick="alert('[시뮬레이션] 카카오맵 길안내 실행')" style="
-    width: 100%;
-    padding: 10px;
-    background: #D85A30;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  ">🗺 지금 바로 출발</button>
-</div>`;
+  // 실제 로드된 병원 데이터 우선 사용
+  const hospitals = window._currentHospitals;
+  if(hospitals && hospitals.length > 0){
+    // 기저질환 매칭 병원 우선, 없으면 1순위
+    let best = hospitals[0];
+    if(specialty){
+      const matched = hospitals.find(h => (h.specialties||[]).some(s => s.includes(specialty.replace(/과$/,''))));
+      if(matched) best = matched;
+    }
 
-  appendBubble(cardHtml, 'ai');
+    const specBadges = (best.specialties||[]).slice(0,4).map(s=>`<span style="display:inline-block;padding:1px 7px;background:#e0f2fe;color:#0369a1;border-radius:6px;font-size:11px;margin:2px 2px 0 0;">${s}</span>`).join('');
+    const matchBadge = specialty && (best.specialties||[]).some(s=>s.includes(specialty.replace(/과$/,'')))
+      ? `<div style="font-size:12px;color:#1D9E75;margin:6px 0;">✅ <strong>${specialty}</strong> 진료 가능 (기저질환 매칭)</div>` : '';
+    const bedColor = {ok:'#16a34a',warn:'#d97706',crit:'#dc2626'}[best.available]||'#555';
+    const hospIdx = hospitals.indexOf(best);
+
+    const cardHtml = `
+<div style="background:#fff0f0;border:2px solid #D85A30;border-radius:12px;padding:14px 16px;margin-top:8px;">
+  <div style="font-size:13px;font-weight:600;color:#D85A30;margin-bottom:8px;">🚨 즉시 이동 추천 병원</div>
+  <div style="font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:2px;">${best.name}</div>
+  <div style="font-size:11px;color:#888;margin-bottom:6px;">${best.address||''}</div>
+  <div style="margin-bottom:6px;">${specBadges||'<span style="font-size:11px;color:#aaa;">특수과 정보 없음</span>'}</div>
+  ${matchBadge}
+  <div style="display:flex;gap:14px;font-size:12px;color:#555;margin-bottom:10px;flex-wrap:wrap;">
+    <span>📍 ${best.dist}km</span>
+    <span>⏱️ 약 ${best.eta}분</span>
+    <span>🛏️ <span style="color:${bedColor};font-weight:600;">병상 ${best.availBeds}개</span></span>
+    ${best.phone ? `<span>📞 ${best.phone}</span>` : ''}
+  </div>
+  <button onclick="openRouteModal(${hospIdx})" style="width:100%;padding:10px;background:#D85A30;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🗺 지금 바로 출발</button>
+</div>`;
+    appendBubble(cardHtml, 'ai');
+
+  } else {
+    // 병원 데이터 없을 때: 검색 유도
+    appendBubble(`
+<div style="background:#fff0f0;border:2px solid #D85A30;border-radius:12px;padding:14px 16px;margin-top:8px;">
+  <div style="font-size:13px;font-weight:600;color:#D85A30;margin-bottom:6px;">🚨 즉시 응급실로 이동하세요</div>
+  <div style="font-size:12px;color:#555;margin-bottom:10px;">위치 정보를 가져오는 중입니다. 아래 버튼으로 주변 응급실을 검색하거나 119에 신고하세요.</div>
+  <div style="display:flex;gap:8px;">
+    <button onclick="runSearch()" style="flex:1;padding:9px;background:#D85A30;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🔍 응급실 검색</button>
+    <button onclick="location.href='tel:119'" style="flex:1;padding:9px;background:#b71c1c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🚑 119 신고</button>
+  </div>
+</div>`, 'ai');
+  }
 }
 
 document.getElementById('chatIn').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
@@ -2210,31 +2232,18 @@ function openQrModal(){
     return;
   }
 
-  // QR에 인코딩할 텍스트 (구급대원 읽기용 간결 포맷)
   const qrText = [
-    `[응급 의료정보]`,
+    '[응급 의료정보]',
     `이름: ${data.name} / ${data.age}세 / ${data.gender} / 혈액형: ${data.blood_type}`,
     `기저질환: ${data.conditions}`,
     `복용약: ${data.medications}`,
     `알레르기: ${data.allergies}`,
     `정기병원: ${data.hospital}`,
-    `최근 심박: ${data.hr}bpm / SpO2: ${data.spo2}% / 혈압: ${data.bp}mmHg`,
+    `심박: ${data.hr}bpm SpO2: ${data.spo2}% 혈압: ${data.bp}`,
     `생성: ${data.ts}`
   ].join('\n');
 
-  // QR 생성
-  const canvas = document.getElementById('qrCanvas');
-  canvas.innerHTML = '';
-  new QRCode(canvas, {
-    text: qrText,
-    width: 200,
-    height: 200,
-    colorDark: '#1a1a1a',
-    colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.M
-  });
-
-  // 정보 리스트
+  // 정보 리스트 먼저 채우기
   document.getElementById('qrInfoList').innerHTML = [
     `👤 ${data.name} · ${data.age}세 · ${data.gender}`,
     `🩸 혈액형: ${data.blood_type}`,
@@ -2244,6 +2253,12 @@ function openQrModal(){
     `🏨 정기병원: ${data.hospital}`,
     `❤️ 심박: ${data.hr}bpm · SpO2: ${data.spo2}% · 혈압: ${data.bp}`
   ].map(l=>`<div>${l}</div>`).join('');
+
+  // QR 생성: 구글 Charts API (외부 라이브러리 불필요)
+  const encoded = encodeURIComponent(qrText);
+  const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encoded}&choe=UTF-8`;
+  const canvas = document.getElementById('qrCanvas');
+  canvas.innerHTML = `<img src="${qrUrl}" width="200" height="200" alt="QR코드" style="border-radius:8px;" onerror="this.parentElement.innerHTML='<div style=\"padding:20px;color:#888;font-size:12px;\">QR 생성 실패 — 인터넷 연결 확인</div>'">`;
 
   document.getElementById('qrModal').classList.add('show');
 }
