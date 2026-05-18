@@ -746,7 +746,7 @@ textarea{resize:none;height:60px;line-height:1.5;}
   <div class="qr-box">
     <h3>🏷️ 응급 의료정보 QR</h3>
     <p>구급대원·의료진이 이 QR을 스캔해 환자 정보를 확인합니다</p>
-    <div id="qrCanvas"></div>
+    <canvas id="qrCanvas" style="display:block;margin:0 auto 16px;border-radius:8px;"></canvas>
     <div class="qr-info-list" id="qrInfoList">—</div>
     <button class="qr-close-btn" onclick="closeQrModal()">닫기</button>
   </div>
@@ -2353,6 +2353,268 @@ async function checkBackendHealth(){
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
 
+// ── QR 코드 생성 엔진 (순수 JS, 외부 의존성 없음) ────────────
+// ── 순수 JS QR코드 생성기 (외부 라이브러리 없음) ──────────────
+// Reed-Solomon + QR Matrix 구현 (Version 1~10, ECC Level M)
+// 참고: ISO 18004 QR Code specification
+
+(function(global){
+'use strict';
+
+// ── GF(256) 갈로이 필드 ──────────────────
+const GF_EXP = new Uint8Array(512);
+const GF_LOG = new Uint8Array(256);
+(function(){
+  let x=1;
+  for(let i=0;i<255;i++){
+    GF_EXP[i]=x; GF_LOG[x]=i;
+    x<<=1; if(x&256)x^=285;
+  }
+  for(let i=255;i<512;i++) GF_EXP[i]=GF_EXP[i-255];
+})();
+const gfMul=(x,y)=>x&&y?GF_EXP[GF_LOG[x]+GF_LOG[y]]:0;
+const gfPoly=(ec)=>{
+  let g=[1];
+  for(let i=0;i<ec;i++){
+    const f=[1,GF_EXP[i]];
+    const r=new Array(g.length+1).fill(0);
+    for(let j=0;j<g.length;j++) for(let k=0;k<f.length;k++) r[j+k]^=gfMul(g[j],f[k]);
+    g=r;
+  }
+  return g;
+};
+const rsEncode=(data,ec)=>{
+  const gen=gfPoly(ec);
+  const msg=[...data,...new Array(ec).fill(0)];
+  for(let i=0;i<data.length;i++){
+    const c=msg[i];
+    if(c) for(let j=0;j<gen.length;j++) msg[i+j]^=gfMul(gen[j],c);
+  }
+  return msg.slice(data.length);
+};
+
+// ── Version / 정보 테이블 (ECC M) ────────
+// [version, total_codewords, data_codewords, ec_codewords_per_block, blocks_group1, blocks_group2]
+const VER_TABLE=[
+  null,
+  {v:1,size:21,data:16,ec:10,b1:1,b2:0,dc1:16,dc2:0},
+  {v:2,size:25,data:28,ec:16,b1:1,b2:0,dc1:28,dc2:0},
+  {v:3,size:29,data:44,ec:26,b1:1,b2:0,dc1:44,dc2:0},
+  {v:4,size:33,data:64,ec:18,b1:2,b2:0,dc1:32,dc2:0},
+  {v:5,size:37,data:86,ec:24,b1:2,b2:0,dc1:43,dc2:0},
+  {v:6,size:41,data:108,ec:16,b1:4,b2:0,dc1:27,dc2:0},
+  {v:7,size:45,data:124,ec:18,b1:4,b2:1,dc1:31,dc2:32},
+  {v:8,size:49,data:154,ec:22,b1:2,b2:4,dc1:38,dc2:39},
+  {v:9,size:53,data:182,ec:22,b1:3,b2:4,dc1:36,dc2:37},
+  {v:10,size:57,data:213,ec:26,b1:4,b2:2,dc1:43,dc2:44},
+];
+
+// 필요한 버전 선택
+function pickVersion(byteLen){
+  for(let i=1;i<=10;i++){
+    const t=VER_TABLE[i];
+    if(t && t.data>=byteLen+2) return t; // +2: mode indicator + length
+  }
+  return null;
+}
+
+// ── QR 매트릭스 그리기 ───────────────────
+function makeMatrix(n){ return Array.from({length:n},()=>new Array(n).fill(-1)); }
+
+function setFinder(m,r,c){
+  for(let dr=-1;dr<=7;dr++) for(let dc=-1;dc<=7;dc++){
+    const nr=r+dr,nc=c+dc;
+    if(nr<0||nr>=m.length||nc<0||nc>=m.length) continue;
+    const on=(dr>=0&&dr<=6&&(dc===0||dc===6))||(dc>=0&&dc<=6&&(dr===0||dr===6))||(dr>=2&&dr<=4&&dc>=2&&dc<=4)||dr===-1||dc===-1;
+    m[nr][nc]=on?1:0;
+  }
+}
+
+function setAlignment(m,centers){
+  for(const [r,c] of centers){
+    if(m[r][c]!==-1) continue;
+    for(let dr=-2;dr<=2;dr++) for(let dc=-2;dc<=2;dc++){
+      const on=dr===-2||dr===2||dc===-2||dc===2||(dr===0&&dc===0);
+      m[r+dr][c+dc]=on?1:0;
+    }
+  }
+}
+
+// alignment pattern 좌표 (version별)
+const ALIGN={1:[],2:[[6,18],[18,6],[18,18]],3:[[6,22],[22,6],[22,22]],
+  4:[[6,26],[26,6],[26,26]],5:[[6,30],[30,6],[30,30]],
+  6:[[6,34],[34,6],[34,34]],7:[[6,22],[6,38],[22,6],[22,22],[22,38],[38,6],[38,22],[38,38]],
+  8:[[6,24],[6,42],[24,6],[24,24],[24,42],[42,6],[42,24],[42,42]],
+  9:[[6,26],[6,46],[26,6],[26,26],[26,46],[46,6],[46,26],[46,46]],
+  10:[[6,28],[6,50],[28,6],[28,28],[28,50],[50,6],[50,28],[50,50]]};
+
+function setTiming(m,size){
+  for(let i=8;i<size-8;i++){
+    m[6][i]=m[i][6]=i%2===0?1:0;
+  }
+}
+
+function setFormatInfo(m,size,mask){
+  // Format info bits (ECC M, mask pattern)
+  const FORMAT_STRINGS=[
+    0x5412,0x5125,0x5E7C,0x5B4B,0x45F9,0x40CE,0x4F97,0x4AA0,
+    0x77C4,0x72F3,0x7DAA,0x789D,0x662F,0x6318,0x6C41,0x6976,
+    0x1689,0x13BE,0x1CE7,0x19D0,0x0762,0x0255,0x0D0C,0x083B,
+    0x355F,0x3068,0x3F31,0x3A06,0x24B4,0x2183,0x2EDA,0x2BED
+  ];
+  const fmt=FORMAT_STRINGS[mask]; // ECC M = 00, mask 0-7
+  const bits=[];
+  for(let i=14;i>=0;i--) bits.push((fmt>>i)&1);
+
+  const pos1=[[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]];
+  const pos2=[[size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8],[8,size-8],[8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1]];
+  for(let i=0;i<15;i++){
+    m[pos1[i][0]][pos1[i][1]]=bits[i];
+    m[pos2[i][0]][pos2[i][1]]=bits[i];
+  }
+  m[size-8][8]=1; // dark module
+}
+
+function isFunction(m,r,c){ return m[r][c]!==-1; }
+
+function placeData(m,size,data){
+  let idx=0,dir=-1,row=size-1;
+  for(let col=size-1;col>=1;col-=2){
+    if(col===6) col--;
+    for(let cnt=0;cnt<size;cnt++){
+      const r=dir===1?cnt:size-1-cnt;
+      for(let c=0;c<2;c++){
+        const cc=col-c;
+        if(!isFunction(m,r,cc)){
+          const bit=idx<data.length*8?(data[Math.floor(idx/8)]>>(7-(idx%8)))&1:0;
+          m[r][cc]=bit; idx++;
+        }
+      }
+    }
+    dir=-dir;
+  }
+}
+
+function applyMask(m,size,mask){
+  const cond=[
+    (r,c)=>(r+c)%2===0,
+    (r,c)=>r%2===0,
+    (r,c)=>c%3===0,
+    (r,c)=>(r+c)%3===0,
+    (r,c)=>(Math.floor(r/2)+Math.floor(c/3))%2===0,
+    (r,c)=>r*c%2+r*c%3===0,
+    (r,c)=>(r*c%2+r*c%3)%2===0,
+    (r,c)=>(r+c+r*c)%3===0,  // mask 7 — default used
+  ];
+  const fn=cond[mask];
+  for(let r=0;r<size;r++) for(let c=0;c<size;c++){
+    if(!isFunction(m,r,c)&&fn(r,c)) m[r][c]^=1;
+  }
+}
+
+// ── 메인 QR 생성 함수 ────────────────────
+function generateQR(text){
+  const enc=new TextEncoder();
+  const bytes=enc.encode(text);
+  const vt=pickVersion(bytes.length);
+  if(!vt) return null;
+
+  const {v,size,data:dataCW,ec:ecCW,b1,b2,dc1,dc2}=vt;
+
+  // 데이터 코드워드 준비
+  const modeLen=[
+    0x40,  // mode=byte: 0100
+    (bytes.length>>8)&0xFF,
+    bytes.length&0xFF,
+    ...bytes,
+    0xEC,0x11 // padding
+  ];
+  // 실제론 mode nibble + length 2nibble이지만 단순화
+  const raw=[((4<<4)|(bytes.length>>4))&0xFF,((bytes.length&0xF)<<4)&0xFF,...bytes,0];
+  const padded=new Uint8Array(dataCW).fill(0);
+  const stream=[];
+  // Byte mode encoding
+  let bits=[];
+  // mode indicator: 0100
+  bits.push(0,1,0,0);
+  // character count (8 bits for version 1-9)
+  for(let i=7;i>=0;i--) bits.push((bytes.length>>i)&1);
+  for(const b of bytes) for(let i=7;i>=0;i--) bits.push((b>>i)&1);
+  // terminator
+  for(let i=0;i<4&&bits.length<dataCW*8;i++) bits.push(0);
+  // pad to byte boundary
+  while(bits.length%8) bits.push(0);
+  // pad codewords
+  const PAD=[0xEC,0x11];
+  let pi=0;
+  while(bits.length<dataCW*8){ for(let i=7;i>=0;i--) bits.push((PAD[pi%2]>>i)&1); pi++; }
+
+  // bits → bytes
+  const dataBytes=[];
+  for(let i=0;i<bits.length;i+=8){
+    let b=0; for(let j=0;j<8;j++) b=(b<<1)|bits[i+j];
+    dataBytes.push(b);
+  }
+
+  // RS error correction
+  const blocks=[];
+  let off=0;
+  for(let i=0;i<b1;i++){
+    const d=dataBytes.slice(off,off+dc1);
+    blocks.push({d,e:rsEncode(d,ecCW)}); off+=dc1;
+  }
+  for(let i=0;i<b2;i++){
+    const d=dataBytes.slice(off,off+dc2);
+    blocks.push({d,e:rsEncode(d,ecCW)}); off+=dc2;
+  }
+
+  // Interleave
+  const final=[];
+  const maxDC=Math.max(dc1,dc2||0);
+  for(let i=0;i<maxDC;i++) for(const bl of blocks) if(i<bl.d.length) final.push(bl.d[i]);
+  for(let i=0;i<ecCW;i++) for(const bl of blocks) final.push(bl.e[i]);
+
+  // Build matrix
+  const m=makeMatrix(size);
+  setFinder(m,0,0); setFinder(m,size-7,0); setFinder(m,0,size-7);
+  setAlignment(m,ALIGN[v]||[]);
+  setTiming(m,size);
+  m[size-8][8]=0; // dark module placeholder
+  // format info placeholder
+  const fmtPos=[[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],
+    [size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8],[8,size-8],[8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1]];
+  for(const [r,c] of fmtPos) m[r][c]=0;
+
+  placeData(m,size,final);
+
+  // mask 3 is stable for most data
+  const MASK=3;
+  applyMask(m,size,MASK);
+  setFormatInfo(m,size,MASK);
+
+  return {matrix:m,size};
+}
+
+// ── Canvas 렌더링 ─────────────────────────
+function renderQR(canvasEl,text,cellSize=4){
+  const qr=generateQR(text);
+  if(!qr){ canvasEl.width=canvasEl.height=200; const ctx=canvasEl.getContext('2d'); ctx.fillStyle='#888'; ctx.font='12px sans-serif'; ctx.fillText('QR 생성 불가 (텍스트 너무 김)',10,100); return; }
+  const {matrix,size}=qr;
+  const quiet=4;
+  const total=(size+quiet*2)*cellSize;
+  canvasEl.width=canvasEl.height=total;
+  const ctx=canvasEl.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,total,total);
+  ctx.fillStyle='#1a1a1a';
+  for(let r=0;r<size;r++) for(let c=0;c<size;c++){
+    if(matrix[r][c]===1) ctx.fillRect((c+quiet)*cellSize,(r+quiet)*cellSize,cellSize,cellSize);
+  }
+}
+
+global.QRGen={generateQR,renderQR};
+})(window);
+
+
 // ── QR 의료정보 모달 ──────────────────────────────────────────
 function buildQrData(){
   const profile = (typeof getActiveProfile==='function') ? getActiveProfile() : null;
@@ -2400,16 +2662,20 @@ function openQrModal(){
     ts:   new Date().toLocaleString('ko-KR')
   };
 
-  const qrText = [
-    '[응급 의료정보]',
-    `이름: ${data.name} / ${data.age}세 / ${data.gender} / 혈액형: ${data.blood_type}`,
-    `기저질환: ${data.conditions}`,
-    `복용약: ${data.medications}`,
-    `알레르기: ${data.allergies}`,
-    `정기병원: ${data.hospital}`,
-    `심박: ${data.hr}bpm SpO2: ${data.spo2}% 혈압: ${data.bp}`,
-    `생성: ${data.ts}`
-  ].join('\n');
+  // QR 텍스트: 핵심 정보만 압축 (Version 10 한계 ~213바이트)
+  // 영문 필드명으로 단축해 바이트 절약
+  const qrLines = [
+    `[ER INFO] ${data.name}/${data.age}/${data.gender}`,
+    `BT:${data.blood_type}`,
+    data.conditions!=='없음' ? `DX:${data.conditions}` : '',
+    data.medications!=='없음' ? `Rx:${data.medications}` : '',
+    data.allergies!=='없음'   ? `ALG:${data.allergies}`  : '',
+    data.hospital!=='없음'    ? `HOSP:${data.hospital}`  : '',
+    `HR:${data.hr} SpO2:${data.spo2} BP:${data.bp}`,
+  ].filter(Boolean);
+  const qrText = qrLines.join('|');
+  // 210바이트 초과 시 잘라내기
+  const qrTextFinal = qrText.length > 210 ? qrText.slice(0, 207) + '...' : qrText;
 
   // 정보 리스트 먼저 채우기
   document.getElementById('qrInfoList').innerHTML = [
@@ -2422,11 +2688,21 @@ function openQrModal(){
     `❤️ 심박: ${data.hr}bpm · SpO2: ${data.spo2}% · 혈압: ${data.bp}`
   ].map(l=>`<div>${l}</div>`).join('');
 
-  // QR 생성: 구글 Charts API (외부 라이브러리 불필요)
-  const encoded = encodeURIComponent(qrText);
-  const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encoded}&choe=UTF-8`;
+  // QR 생성: 순수 JS Canvas (외부 API 없음)
   const canvas = document.getElementById('qrCanvas');
-  canvas.innerHTML = `<img src="${qrUrl}" width="200" height="200" alt="QR코드" style="border-radius:8px;" onerror="this.parentElement.innerHTML='<div style=\"padding:20px;color:#888;font-size:12px;\">QR 생성 실패 — 인터넷 연결 확인</div>'">`;
+  if(typeof QRGen !== 'undefined'){
+    QRGen.renderQR(canvas, qrTextFinal, 4);
+  } else {
+    // fallback: 텍스트로만 표시
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.height = 200;
+    ctx.fillStyle = '#f3f4f6';
+    ctx.fillRect(0,0,200,200);
+    ctx.fillStyle = '#374151';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('QR 엔진 로드 중...', 100, 100);
+  }
 
   document.getElementById('qrModal').classList.add('show');
 }
