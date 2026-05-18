@@ -59,6 +59,9 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 CLOVA_CLIENT_ID     = os.getenv("CLOVA_CLIENT_ID")
 CLOVA_CLIENT_SECRET = os.getenv("CLOVA_CLIENT_SECRET")
 
+# 국립중앙의료원 응급의료포털 (NEMC) Open API 키
+NEMC_API_KEY        = os.environ.get("NEMC_API_KEY", "")
+
 # 추가 질문 최대 횟수
 MAX_QUESTIONS = 3
 
@@ -236,13 +239,20 @@ SYSTEM_TEMPLATE = """당신은 KTAS(한국형 응급환자 분류도구, 2021) �
 ## 관련 KTAS 분류 기준
 {ktas_context}
 
+## 병원 추천 우선순위 규칙 (분류와 함께 적용)
+1. 환자의 기저질환과 관련된 특수과를 보유한 병원을 최우선으로 추천
+2. 환자가 기존에 다니던 병원이 주변에 있으면 동일 병원 계열 우선 고려
+3. KTAS 1~2: 거리보다 특수과 보유 + 응급병상 가용 우선
+4. KTAS 3: 특수과(0.30) + 거리(0.25) + 대기시간(0.20) + 응급병상(0.20) + 병원등급(0.05) 가중 합산
+5. KTAS 4~5: 거리 + 특수과 우선, 응급실보다 야간진료 클리닉도 고려
+
 ## 응답 형식 (반드시 JSON만 출력, 다른 텍스트 금지)
 
 추가 질문이 필요한 경우:
 {{"type": "question", "question": "<질문 내용을 환자에게 직접 묻는 말투로>"}}
 
 분류 가능한 경우:
-{{"type": "classification", "level": <1~5>, "reason": "<분류 근거 한 문장>", "chief_complaint": "<해당 주호소명>", "specialty": "<필요 진료과 (예: 응급의학과, 심혈관내과, 신경과, 외상센터, 소아과 등)>"}}
+{{"type": "classification", "level": <1~5>, "reason": "<분류 근거 한 문장>", "chief_complaint": "<해당 주호소명>", "specialty": "<필요 진료과>", "hospital_priority": "<특수과 기준 추천 이유 — 30자 이내>", "specialty_match": <true/false — 주변 병원 중 특수과 매칭 병원 존재 여부>}}
 """
 
 
@@ -300,17 +310,35 @@ def count_questions(messages: list) -> int:
     return count
 
 
-def classify_with_gpt(messages: list, ktas_context: str, question_count: int, twin_context: str = "") -> dict:
+def build_hospital_context(hospital_list) -> str:
+    """주변 병원 특수과/병상 정보를 GPT 프롬프트용 텍스트로 변환."""
+    if not hospital_list:
+        return ""
+    lines = ["[주변 응급실 특수과 현황 — 추천 시 반드시 고려]"]
+    for i, h in enumerate(hospital_list[:5], 1):
+        specs = ', '.join(h.get('specialties', []) or []) or '정보 없음'
+        er = h.get('er_available', h.get('availBeds', '?'))
+        lines.append(f"{i}. {h.get('name', '병원')} — 특수과: {specs} / 응급병상: {er}")
+    return "\n".join(lines)
+
+
+def classify_with_gpt(messages: list, ktas_context: str, question_count: int,
+                      twin_context: str = "", hospital_list=None) -> dict:
     """
-    멀티턴 대화 히스토리와 KTAS 컨텍스트(+선택적 Twin 컨텍스트)를 바탕으로
-    GPT가 분류 또는 추가 질문을 반환합니다.
+    멀티턴 대화 히스토리 + KTAS 컨텍스트 (+선택적 Twin/주변 병원 컨텍스트)를
+    바탕으로 GPT가 분류 또는 추가 질문을 반환합니다.
     """
     system_prompt = SYSTEM_TEMPLATE.format(
         max_questions=MAX_QUESTIONS,
         ktas_context=ktas_context,
     )
 
-    # Twin 프로파일이 있으면 system prompt 앞에 prepend
+    # 주변 병원 정보가 있으면 prepend
+    hospital_context = build_hospital_context(hospital_list)
+    if hospital_context:
+        system_prompt = hospital_context + "\n\n" + system_prompt
+
+    # Twin 프로파일이 있으면 그 앞에 prepend (최상단)
     if twin_context:
         system_prompt = twin_context + "\n\n" + system_prompt
 
@@ -413,6 +441,7 @@ def classify():
     messages: list = body.get("messages", [])
     ktas_context: str = body.get("ktas_context", "").strip()
     twin_profile: dict = body.get("twin_profile", None)  # Twin 프로파일 (선택)
+    hospital_list: list = body.get("hospital_list", None)  # 주변 병원 (선택)
 
     # ── 입력 검증 ──────────────────────────
     if not messages:
@@ -443,7 +472,8 @@ def classify():
 
     # ── GPT 호출 ────────────────────────────
     try:
-        result = classify_with_gpt(messages, ktas_context, question_count, twin_context)
+        result = classify_with_gpt(messages, ktas_context, question_count,
+                                   twin_context, hospital_list)
     except Exception as e:
         print(f"❌ GPT 오류: {e}")
         return jsonify({"error": str(e)}), 500
@@ -463,17 +493,134 @@ def classify():
     if result_type == "classification" and matched_complaints:
         result["matched_complaints"] = matched_complaints
 
-    # ── Twin 사용 여부 및 specialty 기본값 ──
+    # ── Twin/병원 추천 메타 ─────────────────
     if result_type == "classification":
         result["twin_used"] = bool(twin_profile)
         result.setdefault("specialty", "응급의학과")
+        result.setdefault("hospital_priority", "")
+        result.setdefault("specialty_match", False)
 
     return jsonify(result)
 
 
+# ─────────────────────────────────────────
+# NEMC (국립중앙의료원) 응급의료포털 프록시
+# ─────────────────────────────────────────
+
+NEMC_SPECIALTY_FIELDS = {
+    'hvs01': '신경과', 'hvs02': '흉부외과', 'hvs03': '신경외과',
+    'hvs04': '심장내과', 'hvs05': '소화기내과', 'hvs06': '산부인과',
+    'hvs07': '비뇨기과', 'hvs08': '내분비내과', 'hvs09': '응급의학과',
+    'hvs10': '소아과', 'hvs11': '정형외과', 'hvs12': '안과'
+}
+
+
+def _safe_int(v, default=0):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(v, default=0.0):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def parse_specialties(item: dict) -> list:
+    """NEMC API 응답에서 진료 가능 특수과 목록 추출."""
+    available = []
+    for field, name in NEMC_SPECIALTY_FIELDS.items():
+        if _safe_int(item.get(field, 0)) > 0:
+            available.append(name)
+    return available
+
+
+def fetch_emergency_hospitals(lat: float, lng: float, radius_km: int = 10) -> list:
+    """
+    국립중앙의료원 응급의료포털 API로 주변 응급실 조회.
+    API 실패 시 빈 리스트 반환 (호출부에서 fallback 처리).
+    """
+    if not NEMC_API_KEY:
+        print("[NEMC] API key 미설정 — 빈 리스트 반환")
+        return []
+
+    url = "https://apis.data.go.kr/B552657/ErmctInfoInqireService/getEmrrmRltmUsefulSckbdInfoInqire"
+    params = {
+        'serviceKey': NEMC_API_KEY,
+        'STAGE1':     '',
+        'STAGE2':     '',
+        'pageNo':     1,
+        'numOfRows':  30,
+        'WGS84_LON':  f"{lng:.6f}",
+        'WGS84_LAT':  f"{lat:.6f}",
+        '_type':      'json'
+    }
+
+    try:
+        resp = requests.get(url, params=params, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+
+        items = data.get('response', {}).get('body', {}).get('items', {}).get('item', [])
+        if isinstance(items, dict):
+            items = [items]
+
+        hospitals = []
+        for item in items:
+            hospitals.append({
+                'name':         item.get('dutyName', ''),
+                'address':      item.get('dutyAddr', ''),
+                'phone':        item.get('dutyTel3', '') or item.get('dutyTel1', ''),
+                'lat':          _safe_float(item.get('wgs84Lat', 0)),
+                'availBeds':    _safe_int(item.get('hvec', 0)),
+                'er_available': _safe_int(item.get('hvec', 0)),
+                'hvoc':         _safe_int(item.get('hvoc', 0)),
+                'specialties':  parse_specialties(item),
+                'duty_time':    item.get('dutyTime1s', '')
+            })
+
+        return hospitals
+
+    except Exception as e:
+        print(f"[NEMC API ERROR] {e}")
+        return []
+
+
+@app.route("/hospitals", methods=["GET"])
+def hospitals():
+    """
+    NEMC 응급실 조회 프록시. 프론트엔드는 이 엔드포인트로 호출.
+
+    Request : GET /hospitals?lat=37.5&lng=126.9
+    Response: { "hospitals": [...], "source": "nemc" | "empty" }
+    """
+    try:
+        lat = float(request.args.get('lat', '0'))
+        lng = float(request.args.get('lng', '0'))
+    except ValueError:
+        return jsonify({"error": "lat/lng must be numeric"}), 400
+
+    if lat == 0 or lng == 0:
+        return jsonify({"error": "lat, lng are required"}), 400
+
+    items = fetch_emergency_hospitals(lat, lng)
+    return jsonify({
+        "hospitals": items,
+        "source":    "nemc" if items else "empty",
+        "count":     len(items)
+    })
+
+
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "ktas_entries": len(KTAS_DATA)})
+    return jsonify({
+        "status":       "ok",
+        "ktas_entries": len(KTAS_DATA),
+        "nemc_ready":   bool(NEMC_API_KEY)
+    })
 
 
 # ─────────────────────────────────────────

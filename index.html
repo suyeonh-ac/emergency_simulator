@@ -570,8 +570,158 @@ textarea{resize:none;height:60px;line-height:1.5;}
   <div class="hdr-right">
     <div class="live-chip"><div class="live-dot"></div><span>실시간 연동</span></div>
     <div id="clock">--:--:--</div>
+    <span id="active-profile-badge" style="display:none; font-size:11px; color:#7F77DD; background:#f3f0ff; padding:3px 8px; border-radius:10px; white-space:nowrap;"></span>
   </div>
 </header>
+
+<!-- 사용자 선택 바 -->
+<div id="user-selector-bar" style="
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin-top: 54px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-bottom: 0.5px solid #e0e0e0;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 200;
+">
+  <span style="font-size: 12px; color: #888; white-space: nowrap;">사용자 선택:</span>
+  <select id="user-select" onchange="switchUser(this.value)" style="
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 13px;
+    flex: 1;
+    min-width: 120px;
+    max-width: 200px;
+  ">
+    <!-- JS로 동적 생성 -->
+  </select>
+  <button onclick="openAddUserModal()" style="
+    padding: 6px 14px;
+    background: #7F77DD;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+  ">+ 사용자 추가</button>
+  <button onclick="openEditProfileModal()" style="
+    padding: 6px 14px;
+    background: transparent;
+    color: #7F77DD;
+    border: 1.5px solid #7F77DD;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+  ">프로파일 수정</button>
+</div>
+
+<!-- 웨어러블 바이탈 위젯 -->
+<div id="vitals-widget" style="
+  display: flex;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-bottom: 0.5px solid #e0e0e0;
+  flex-wrap: wrap;
+  align-items: center;
+  position: relative;
+  z-index: 200;
+">
+  <span style="font-size: 11px; color: #888;">📱 건강 데이터</span>
+
+  <div class="vital-chip" id="vital-hr" style="
+    display: flex; align-items: center; gap: 4px;
+    background: #fff; border: 1px solid #eee;
+    border-radius: 20px; padding: 4px 10px;
+    font-size: 12px; color: #333;
+  ">
+    ❤️ <span id="vital-hr-val">--</span> bpm
+  </div>
+
+  <div class="vital-chip" id="vital-spo2" style="
+    display: flex; align-items: center; gap: 4px;
+    background: #fff; border: 1px solid #eee;
+    border-radius: 20px; padding: 4px 10px;
+    font-size: 12px; color: #333;
+  ">
+    🫁 <span id="vital-spo2-val">--</span> %
+  </div>
+
+  <div class="vital-chip" id="vital-bp" style="
+    display: flex; align-items: center; gap: 4px;
+    background: #fff; border: 1px solid #eee;
+    border-radius: 20px; padding: 4px 10px;
+    font-size: 12px; color: #333;
+  ">
+    🩸 <span id="vital-bp-val">--/--</span> mmHg
+  </div>
+
+  <button onclick="openVitalsInput()" style="
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid #7F77DD;
+    border-radius: 20px;
+    font-size: 11px;
+    color: #7F77DD;
+    cursor: pointer;
+  ">수동 입력</button>
+
+  <span id="vitals-source-badge" style="font-size: 11px; color: #aaa;"></span>
+</div>
+
+<!-- 바이탈 수동 입력 패널 (숨김) -->
+<div id="vitals-input-panel" style="
+  display: none;
+  padding: 12px 16px;
+  background: #fafafa;
+  border-bottom: 0.5px solid #e0e0e0;
+  position: relative;
+  z-index: 200;
+">
+  <p style="font-size: 11px; color: #888; margin-bottom: 10px;">
+    📱 실제 서비스에서는 Apple Health / Samsung Health에서 자동 연동됩니다.
+    테스트를 위해 수동으로 입력해주세요.
+  </p>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+    <div>
+      <label style="font-size: 11px; color: #555;">심박수 (bpm)</label>
+      <input type="number" id="input-hr" placeholder="예: 88"
+        style="display: block; width: 90px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; margin-top: 2px;">
+    </div>
+    <div>
+      <label style="font-size: 11px; color: #555;">산소포화도 (%)</label>
+      <input type="number" id="input-spo2" placeholder="예: 97"
+        style="display: block; width: 90px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; margin-top: 2px;">
+    </div>
+    <div>
+      <label style="font-size: 11px; color: #555;">혈압 (수축기)</label>
+      <input type="number" id="input-bp-sys" placeholder="예: 135"
+        style="display: block; width: 90px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; margin-top: 2px;">
+    </div>
+    <div>
+      <label style="font-size: 11px; color: #555;">혈압 (이완기)</label>
+      <input type="number" id="input-bp-dia" placeholder="예: 85"
+        style="display: block; width: 90px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; margin-top: 2px;">
+    </div>
+    <button onclick="applyVitalsInput()" style="
+      padding: 6px 14px;
+      background: #7F77DD;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    ">적용</button>
+  </div>
+</div>
 
 <!-- 접근성 플로팅 패널 (우측 상단 고정) -->
 <div class="a11y-panel">
@@ -685,136 +835,6 @@ textarea{resize:none;height:60px;line-height:1.5;}
         <span style="font-size:var(--fs-sm);font-weight:600;" id="ktasDept">내과</span>
       </div>
       <div class="ktas-reason" id="ktasReason">—</div>
-    </div>
-
-    <!-- 검색 카드 -->
-    <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-        응급실 검색
-      </div>
-
-      <!-- Twin 프로파일 토글 버튼 -->
-      <button
-        type="button"
-        onclick="toggleTwinPanel()"
-        style="
-          width: 100%;
-          padding: 10px 16px;
-          margin-bottom: 10px;
-          background: transparent;
-          border: 1.5px dashed #7F77DD;
-          border-radius: 10px;
-          color: #7F77DD;
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          text-align: left;
-        ">
-        👤 나의 건강 프로파일 설정 (Twin) — 최초 1회 입력 후 자동 적용
-      </button>
-
-      <!-- Twin 입력 패널 (기본 숨김) -->
-      <div id="twin-profile-panel" style="display:none; margin-bottom:16px; padding:14px 16px; background:var(--bg-secondary, #f5f5f5); border-radius:12px; border:0.5px solid #ddd;">
-        <p style="font-size:12px; color:#888; margin-bottom:12px;">
-          한 번 저장하면 응급 시 자동으로 AI 분류에 반영됩니다.
-        </p>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
-          <div>
-            <label style="font-size:12px; color:#555;">나이</label>
-            <input type="number" id="twin-age" placeholder="예: 67"
-              style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; margin-top:4px;">
-          </div>
-          <div>
-            <label style="font-size:12px; color:#555;">성별</label>
-            <select id="twin-gender"
-              style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; margin-top:4px;">
-              <option value="">선택</option>
-              <option value="남">남</option>
-              <option value="여">여</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="margin-bottom:8px;">
-          <label style="font-size:12px; color:#555;">기저질환 (쉼표로 구분)</label>
-          <input type="text" id="twin-conditions" placeholder="예: 고혈압, 당뇨, 관상동맥질환"
-            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; margin-top:4px;">
-        </div>
-
-        <div style="margin-bottom:8px;">
-          <label style="font-size:12px; color:#555;">복용 중인 약 (쉼표로 구분)</label>
-          <input type="text" id="twin-medications" placeholder="예: 아스피린 100mg, 메트포르민"
-            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; margin-top:4px;">
-        </div>
-
-        <div style="margin-bottom:12px;">
-          <label style="font-size:12px; color:#555;">알레르기 (쉼표로 구분)</label>
-          <input type="text" id="twin-allergies" placeholder="예: 페니실린, 조영제"
-            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; margin-top:4px;">
-        </div>
-
-        <div style="display:flex; align-items:center; gap:12px;">
-          <button type="button" onclick="handleTwinSave()"
-            style="padding:8px 20px; background:#7F77DD; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer;">
-            저장
-          </button>
-          <span id="twin-save-status" style="font-size:12px;"></span>
-        </div>
-      </div>
-
-      <div class="form-row2">
-        <div class="field">
-          <label>나이 <span>*</span></label>
-          <input type="number" id="age" placeholder="나이를 입력하세요" min="0" max="120" />
-        </div>
-        <div class="field">
-          <label>성별 <span>*</span></label>
-          <div class="gender-btns">
-            <button class="gender-btn" id="gMale" onclick="setGender('male')">남성</button>
-            <button class="gender-btn" id="gFemale" onclick="setGender('female')">여성</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="field" style="margin-bottom:14px;">
-        <label>주요 증상 <span style="color:var(--text-hint);font-weight:400;">(복수 선택 가능)</span></label>
-        <div class="sym-tags" id="symTags">
-          <div class="sym-tag" onclick="toggleTag(this)">흉통</div>
-          <div class="sym-tag" onclick="toggleTag(this)">호흡곤란</div>
-          <div class="sym-tag" onclick="toggleTag(this)">복통</div>
-          <div class="sym-tag" onclick="toggleTag(this)">두통</div>
-          <div class="sym-tag" onclick="toggleTag(this)">심정지</div>
-          <div class="sym-tag" onclick="toggleTag(this)">외상</div>
-          <div class="sym-tag" onclick="toggleTag(this)">뇌졸중</div>
-          <div class="sym-tag" onclick="toggleTag(this)">발열</div>
-          <div class="sym-tag" onclick="toggleTag(this)">의식저하</div>
-          <div class="sym-tag" onclick="toggleTag(this)">좌측 팔 저림</div>
-          <div class="sym-tag" onclick="toggleTag(this)">식은땀</div>
-          <div class="sym-tag" onclick="toggleTag(this)">구토</div>
-          <div class="sym-tag" onclick="toggleTag(this)">골절</div>
-          <div class="sym-tag" onclick="toggleTag(this)">진통</div>
-          <div class="sym-tag" onclick="toggleTag(this)">안과 이상</div>
-          <div class="sym-tag" onclick="toggleTag(this)">소아 증상</div>
-        </div>
-      </div>
-
-      <div class="form-row2">
-        <div class="field">
-          <label>기존 병력 <span style="color:var(--text-hint);font-weight:400;">(선택 사항)</span></label>
-          <textarea id="medHistory" placeholder="당뇨, 고혈압, 알레르기 등을 입력하세요"></textarea>
-        </div>
-        <div class="field">
-          <label>기존에 다니던 병원 <span style="color:var(--text-hint);font-weight:400;">(선택 사항)</span></label>
-          <textarea id="prevHosp" placeholder="병원 이름을 입력하세요"></textarea>
-        </div>
-      </div>
-
-      <button class="btn-search" id="searchBtn" onclick="runSearch()">
-        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-        응급실 검색
-      </button>
     </div>
 
     <!-- 지도 -->
@@ -1134,6 +1154,12 @@ async function sendChat(){
   // 히스토리에 사용자 메시지 추가 (팀원 API 형식: role/content)
   chatHistory.push({role:'user', content:msg});
 
+  // 패닉 발화 감지 → GPT 호출 없이 즉시 응급 시뮬레이션
+  if (typeof detectPanic === 'function' && detectPanic(msg)) {
+    triggerPanicMode(msg);
+    return;
+  }
+
   // 로딩 말풍선을 매번 새로 생성 (기존 요소 재사용 시 appendChild 오류 발생)
   const chatMsgsEl = document.getElementById('chatMsgs');
   const typingDiv = document.createElement('div');
@@ -1150,6 +1176,14 @@ async function sendChat(){
       if(ktasContext) body.ktas_context = ktasContext;  // 첫 응답 이후 재전송
       const twinPayload = (typeof buildTwinPayload === 'function') ? buildTwinPayload() : null;
       if(twinPayload) body.twin_profile = twinPayload;   // Twin 프로파일 (있을 때만)
+      // 주변 응급실 목록 (GPT 추천 가중치용)
+      if(window._currentHospitals && window._currentHospitals.length){
+        body.hospital_list = window._currentHospitals.slice(0,5).map(h => ({
+          name:         h.name,
+          specialties:  h.specialties || [],
+          er_available: h.availBeds || 0
+        }));
+      }
 
       const res=await fetch(`${BACKEND_URL}/classify`,{
         method:'POST',
@@ -1225,12 +1259,22 @@ async function sendChat(){
     const twinUsedText = result.twin_used
       ? `<br><span style="color:#1D9E75;font-size:var(--fs-xs);">👤 Twin 프로파일 반영됨</span>`
       : '';
+    const specialtyMatchBadge = (result.specialty && typeof result.specialty_match === 'boolean')
+      ? (result.specialty_match
+          ? `<br><span style="color:#1D9E75;font-size:var(--fs-xs);">✅ 주변에 <strong>${result.specialty}</strong> 보유 병원 있음</span>`
+          : `<br><span style="color:#D85A30;font-size:var(--fs-xs);">⚠️ 주변에 ${result.specialty} 전문 병원 없음 — 거리 기준 추천</span>`)
+      : '';
+    const priorityText = result.hospital_priority
+      ? `<br><span style="color:#666;font-size:var(--fs-xs);">📋 병원 선택 근거: ${result.hospital_priority}</span>`
+      : '';
 
     appendBubble(
       `<strong>KTAS ${level}</strong> · ${kl[level]}<br>` +
       `<span style="color:var(--text-hint);font-size:var(--fs-xs);">${reason}</span><br>` +
       (cc ? `<span style="color:#1d4ed8;font-size:var(--fs-xs);">주호소: ${cc}</span>` : '') +
       specialtyText +
+      specialtyMatchBadge +
+      priorityText +
       twinUsedText,
       'sys'
     );
@@ -1249,80 +1293,334 @@ async function sendChat(){
   }
 }
 
-// ── Patient Twin Profile ─────────────────────────────────────
+// ── 사용자 프로파일 관리 (다중 사용자) ───────────────────────
 
-function saveTwinProfile(profileData) {
-    localStorage.setItem('patient_twin_profile', JSON.stringify({
-        ...profileData,
-        last_updated: new Date().toISOString().split('T')[0]
-    }));
+const USERS_KEY = 'emergency_app_users';
+const ACTIVE_USER_KEY = 'emergency_app_active_user';
+
+function getAllUsers() {
+  const raw = localStorage.getItem(USERS_KEY);
+  return raw ? JSON.parse(raw) : {};
 }
 
-function loadTwinProfile() {
-    const raw = localStorage.getItem('patient_twin_profile');
-    return raw ? JSON.parse(raw) : null;
+function saveAllUsers(users) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+function getActiveUserId() {
+  return localStorage.getItem(ACTIVE_USER_KEY) || null;
+}
+
+function setActiveUserId(uid) {
+  localStorage.setItem(ACTIVE_USER_KEY, uid);
+}
+
+function getActiveProfile() {
+  const uid = getActiveUserId();
+  if (!uid) return null;
+  const users = getAllUsers();
+  return users[uid] || null;
 }
 
 function buildTwinPayload() {
-    const profile = loadTwinProfile();
-    if (!profile) return null;
-    return {
-        age:        profile.basic?.age || null,
-        gender:     profile.basic?.gender || null,
-        conditions: profile.medical?.conditions || [],
-        medications:profile.medical?.medications || [],
-        allergies:  profile.medical?.allergies || [],
-        hr_bpm:     profile.vitals_latest?.hr_bpm || null
-    };
+  const profile = getActiveProfile();
+  if (!profile) return null;
+  return {
+    age:              profile.age || null,
+    gender:           profile.gender || null,
+    conditions:       profile.conditions || [],
+    medications:      profile.medications || [],
+    allergies:        profile.allergies || [],
+    regular_hospital: profile.regular_hospital || null,
+    hr_bpm:           profile.hr_bpm || null,
+    spo2_pct:         profile.spo2_pct || null
+  };
 }
 
-function toggleTwinPanel() {
-    const panel = document.getElementById('twin-profile-panel');
-    if (!panel) return;
-    const isHidden = panel.style.display === 'none' || panel.style.display === '';
-    panel.style.display = isHidden ? 'block' : 'none';
+function renderUserSelector() {
+  const users = getAllUsers();
+  const activeId = getActiveUserId();
+  const select = document.getElementById('user-select');
+  if (!select) return;
 
-    if (isHidden) {
-        const profile = loadTwinProfile();
-        if (profile) {
-            const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
-            setVal('twin-age',         profile.basic?.age);
-            setVal('twin-gender',      profile.basic?.gender);
-            setVal('twin-conditions',  (profile.medical?.conditions  || []).join(', '));
-            setVal('twin-medications', (profile.medical?.medications || []).join(', '));
-            setVal('twin-allergies',   (profile.medical?.allergies   || []).join(', '));
-        }
-    }
+  select.innerHTML = '';
+
+  const keys = Object.keys(users);
+  if (keys.length === 0) {
+    select.innerHTML = '<option value="">사용자 없음 — 추가해주세요</option>';
+    return;
+  }
+
+  keys.forEach(uid => {
+    const opt = document.createElement('option');
+    opt.value = uid;
+    opt.textContent = users[uid].name || '이름 없음';
+    if (uid === activeId) opt.selected = true;
+    select.appendChild(opt);
+  });
 }
 
-function handleTwinSave() {
-    const getVal = (id) => (document.getElementById(id)?.value || '');
-    const splitTrim = (str) => str.split(',').map(s => s.trim()).filter(Boolean);
+function switchUser(uid) {
+  setActiveUserId(uid);
+  updateProfileBadge();
+}
 
-    const profileData = {
-        basic: {
-            age:    parseInt(getVal('twin-age')) || null,
-            gender: getVal('twin-gender') || null
-        },
-        medical: {
-            conditions:  splitTrim(getVal('twin-conditions')),
-            medications: splitTrim(getVal('twin-medications')),
-            allergies:   splitTrim(getVal('twin-allergies'))
-        },
-        vitals_latest: {
-            source: 'manual',
-            timestamp: new Date().toISOString()
-        }
-    };
+function updateProfileBadge() {
+  const profile = getActiveProfile();
+  const badge = document.getElementById('active-profile-badge');
+  if (!badge) return;
+  if (profile) {
+    badge.textContent = `👤 ${profile.name} (${profile.age || '?'}세 · ${profile.gender || '?'})`;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
 
-    saveTwinProfile(profileData);
+function openAddUserModal() {
+  document.getElementById('modal-title').textContent = '새 사용자 추가';
+  document.getElementById('modal-username').value = '';
+  document.getElementById('modal-age').value = '';
+  document.getElementById('modal-gender').value = '';
+  document.getElementById('modal-conditions').value = '';
+  document.getElementById('modal-medications').value = '';
+  document.getElementById('modal-allergies').value = '';
+  document.getElementById('modal-hospital').value = '';
+  document.getElementById('profile-modal').style.display = 'flex';
+  window._editingUid = null;
+}
 
-    const status = document.getElementById('twin-save-status');
-    if (status) {
-        status.textContent = '✓ 저장 완료';
-        status.style.color = '#1D9E75';
-        setTimeout(() => { status.textContent = ''; }, 2500);
+function openEditProfileModal() {
+  const uid = getActiveUserId();
+  const profile = getActiveProfile();
+  if (!profile) { alert('먼저 사용자를 선택해주세요.'); return; }
+
+  document.getElementById('modal-title').textContent = '프로파일 수정';
+  document.getElementById('modal-username').value   = profile.name || '';
+  document.getElementById('modal-age').value        = profile.age || '';
+  document.getElementById('modal-gender').value     = profile.gender || '';
+  document.getElementById('modal-conditions').value = (profile.conditions || []).join(', ');
+  document.getElementById('modal-medications').value= (profile.medications || []).join(', ');
+  document.getElementById('modal-allergies').value  = (profile.allergies || []).join(', ');
+  document.getElementById('modal-hospital').value   = profile.regular_hospital || '';
+  document.getElementById('profile-modal').style.display = 'flex';
+  window._editingUid = uid;
+}
+
+function closeProfileModal() {
+  document.getElementById('profile-modal').style.display = 'none';
+}
+
+function saveProfileFromModal() {
+  const splitTrim = s => s.split(',').map(x => x.trim()).filter(Boolean);
+  const name = document.getElementById('modal-username').value.trim();
+  if (!name) { alert('이름을 입력해주세요.'); return; }
+
+  const profileData = {
+    name,
+    age:              parseInt(document.getElementById('modal-age').value) || null,
+    gender:           document.getElementById('modal-gender').value || null,
+    conditions:       splitTrim(document.getElementById('modal-conditions').value),
+    medications:      splitTrim(document.getElementById('modal-medications').value),
+    allergies:        splitTrim(document.getElementById('modal-allergies').value),
+    regular_hospital: document.getElementById('modal-hospital').value.trim() || null,
+    last_updated:     new Date().toISOString().split('T')[0]
+  };
+
+  const users = getAllUsers();
+  const uid = window._editingUid || ('user_' + Date.now());
+  users[uid] = profileData;
+  saveAllUsers(users);
+  setActiveUserId(uid);
+
+  renderUserSelector();
+  updateProfileBadge();
+  closeProfileModal();
+}
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', () => {
+  renderUserSelector();
+  updateProfileBadge();
+});
+
+// ── 웨어러블 바이탈 관리 ──────────────────────────────────────
+
+let currentVitals = { hr: null, spo2: null, bp_sys: null, bp_dia: null, source: 'none' };
+
+function openVitalsInput() {
+  const panel = document.getElementById('vitals-input-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function applyVitalsInput() {
+  const hr     = parseInt(document.getElementById('input-hr')?.value) || null;
+  const spo2   = parseInt(document.getElementById('input-spo2')?.value) || null;
+  const bpSys  = parseInt(document.getElementById('input-bp-sys')?.value) || null;
+  const bpDia  = parseInt(document.getElementById('input-bp-dia')?.value) || null;
+
+  currentVitals = { hr, spo2, bp_sys: bpSys, bp_dia: bpDia, source: 'manual' };
+  renderVitals();
+
+  // 활성 프로파일에 바이탈 업데이트
+  const uid = getActiveUserId();
+  if (uid) {
+    const users = getAllUsers();
+    if (users[uid]) {
+      users[uid].hr_bpm   = hr;
+      users[uid].spo2_pct = spo2;
+      saveAllUsers(users);
     }
+  }
+
+  // 임계값 경고 체크
+  checkVitalAlerts(hr, spo2, bpSys);
+
+  document.getElementById('vitals-input-panel').style.display = 'none';
+}
+
+function renderVitals() {
+  const setEl = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val !== null ? val : '--';
+  };
+  setEl('vital-hr-val', currentVitals.hr);
+  setEl('vital-spo2-val', currentVitals.spo2);
+  const bpText = (currentVitals.bp_sys && currentVitals.bp_dia)
+    ? `${currentVitals.bp_sys}/${currentVitals.bp_dia}` : '--/--';
+  const bpEl = document.getElementById('vital-bp-val');
+  if (bpEl) bpEl.textContent = bpText;
+
+  const badge = document.getElementById('vitals-source-badge');
+  if (badge) badge.textContent = currentVitals.source === 'manual' ? '(수동 입력)' : '';
+}
+
+function checkVitalAlerts(hr, spo2, bpSys) {
+  const alerts = [];
+  if (hr && (hr > 150 || hr < 40))  alerts.push(`심박수 이상: ${hr}bpm`);
+  if (spo2 && spo2 < 90)            alerts.push(`산소포화도 위험: ${spo2}%`);
+  if (bpSys && bpSys > 180)         alerts.push(`혈압 위험: ${bpSys}mmHg`);
+
+  if (alerts.length > 0) {
+    appendBubble(`
+⚠️ <strong>바이탈 이상 감지</strong><br>
+${alerts.map(a => `• ${a}`).join('<br>')}<br><br>
+증상이 있으시면 즉시 응급실 방문을 권장합니다.
+    `, 'crit');
+  }
+}
+
+// buildTwinPayload에 currentVitals 반영 (STEP 2 버전 덮어쓰기)
+function buildTwinPayload() {
+  const profile = getActiveProfile();
+  if (!profile) return null;
+  return {
+    age:              profile.age || null,
+    gender:           profile.gender || null,
+    conditions:       profile.conditions || [],
+    medications:      profile.medications || [],
+    allergies:        profile.allergies || [],
+    regular_hospital: profile.regular_hospital || null,
+    hr_bpm:           currentVitals.hr   || profile.hr_bpm   || null,
+    spo2_pct:         currentVitals.spo2 || profile.spo2_pct || null,
+    bp_systolic:      currentVitals.bp_sys || null
+  };
+}
+
+// ── 패닉 발화 감지 ────────────────────────────────────────────
+
+const PANIC_KEYWORDS = [
+  '죽을것같', '죽을 것 같', '숨못', '숨을 못', '못 쉬', '못쉬',
+  '쓰러', '의식', '안보여', '안 보여', '말이안', '말이 안',
+  '심장이', '가슴이 터', '너무 아파', '너무아파', '살려', '응급',
+  '갑자기', '막 이상', '이상해요', '쥐어짜', '왼팔', '왼쪽 팔'
+];
+
+function detectPanic(text) {
+  if (!text) return false;
+  const normalized = text.replace(/\s/g, '').toLowerCase();
+  return PANIC_KEYWORDS.some(kw => normalized.includes(kw.replace(/\s/g, '')));
+}
+
+function getSpecialtyFromConditions(conditions) {
+  const map = {
+    '고혈압': '심장내과', '관상동맥질환': '심장내과', '부정맥': '심장내과',
+    '당뇨': '내분비내과', '갑상선': '내분비내과',
+    '뇌졸중': '신경과', '뇌경색': '신경과', '파킨슨': '신경과',
+    '천식': '호흡기내과', '폐렴': '호흡기내과', 'COPD': '호흡기내과',
+    '신부전': '신장내과', '투석': '신장내과',
+    '간경화': '소화기내과', '간염': '소화기내과'
+  };
+  for (const cond of conditions || []) {
+    for (const [key, dept] of Object.entries(map)) {
+      if (cond.includes(key)) return dept;
+    }
+  }
+  return null;
+}
+
+function triggerPanicMode(symptomText) {
+  const profile = getActiveProfile();
+
+  // 챗봇 패널에 즉시 반응 메시지 표시
+  const msg = `
+⚠️ <strong>패닉 상태 감지</strong><br>
+추가 질문 없이 바로 연결합니다.<br><br>
+${profile ? `👤 <strong>${profile.name}</strong> 님의 프로파일 로드됨<br>
+기저질환: ${(profile.conditions||[]).join(', ') || '없음'}<br>
+복용약: ${(profile.medications||[]).join(', ') || '없음'}<br><br>` : ''}
+🔴 <strong>KTAS 1~2 의심 — 즉시 응급실로 이동하세요</strong><br><br>
+[시뮬레이션] 가장 가까운 응급실로 자동 연결 중...
+  `;
+  appendBubble(msg, 'crit');
+
+  // 2초 후 병원 추천 시뮬레이션 카드 표시
+  setTimeout(() => {
+    showPanicHospitalCard(profile);
+  }, 2000);
+}
+
+function showPanicHospitalCard(profile) {
+  const specialty = getSpecialtyFromConditions(profile?.conditions || []);
+
+  const cardHtml = `
+<div style="
+  background: #fff0f0;
+  border: 2px solid #D85A30;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 8px;
+">
+  <div style="font-size: 13px; font-weight: 600; color: #D85A30; margin-bottom: 6px;">
+    🚨 즉시 이동 추천 병원
+  </div>
+  <div style="font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px;">
+    ○○대학교병원 응급센터
+  </div>
+  <div style="font-size: 12px; color: #555; margin-bottom: 8px;">
+    📍 현재 위치에서 2.3km · 예상 도착 8분
+  </div>
+  ${specialty ? `<div style="font-size: 12px; color: #1D9E75; margin-bottom: 8px;">
+    ✅ <strong>${specialty}</strong> 진료 가능 (기저질환 매칭)
+  </div>` : ''}
+  <div style="font-size: 11px; color: #888; margin-bottom: 10px;">
+    대기 환자 3명 · 응급 병상 가용
+  </div>
+  <button onclick="alert('[시뮬레이션] 카카오맵 길안내 실행')" style="
+    width: 100%;
+    padding: 10px;
+    background: #D85A30;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  ">🗺 지금 바로 출발</button>
+</div>`;
+
+  appendBubble(cardHtml, 'ai');
 }
 
 document.getElementById('chatIn').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
@@ -1418,30 +1716,70 @@ function calcScore(h,ktas,dept){
 }
 
 // ── NEMC API ─────────────────────────────
+// 특수과 한글명 → 내부 dept 키 매핑 (DEPT_MAP과 호환)
+const SPECIALTY_TO_DEPT = {
+  '심장내과':'cardiac','흉부외과':'cardiac',
+  '신경과':'neuro','신경외과':'neuro',
+  '정형외과':'trauma',
+  '소아과':'peds',
+  '산부인과':'ob',
+  '안과':'opth',
+  '내분비내과':'internal','소화기내과':'internal','비뇨기과':'internal',
+  '응급의학과':'general'
+};
+
 async function fetchEmer(lat,lng,deptKey){
   try{
-    const params=new URLSearchParams({serviceKey:EMER_KEY,pageNo:1,numOfRows:30,WGS84_LON:lng.toFixed(6),WGS84_LAT:lat.toFixed(6)});
-    const res=await fetch(`${EMER_BASE}/getEmrrmRltmUsefulSckbdInfoInqire?${params}`,{mode:'cors'});
-    if(!res.ok)throw new Error('응답오류');
-    const xml=new DOMParser().parseFromString(await res.text(),'text/xml');
-    if(xml.querySelector('errMsg'))throw new Error('API 오류');
-    const items=xml.querySelectorAll('item');if(!items.length)throw new Error('항목없음');
-    let hospitals=Array.from(items).map(item=>{
-      const g=t=>item.querySelector(t)?.textContent?.trim()||'';
-      const hvec=parseInt(g('hvec'))||0,hpbdn=parseInt(g('hpbdn'))||10;
-      const occ=Math.min(Math.round((1-hvec/hpbdn)*100),99);
-      const hlat=parseFloat(g('wgs84Lat')),hlng=parseFloat(g('wgs84Lon'));
-      if(!isFinite(hlat)||!isFinite(hlng))return null;
-      const d=haversine(lat,lng,hlat,hlng);
-      const depts={};
-      Object.entries(DEPT_MAP).forEach(([k,v])=>{if(v.field)depts[k]=g(v.field)==='가능'||g(v.field)==='Y';});
-      return{name:g('dutyName')||g('hpid'),address:g('dutyAddr'),phone:g('dutyTel3')||g('dutyTel1'),
-        lat:hlat,lng:hlng,occupancy:occ,available:occ<60?'ok':occ<80?'warn':'crit',
-        availBeds:hvec,eta:Math.round(d/500+3),dist:(d/1000).toFixed(1),depts,real:true};
+    // backend /hospitals 프록시 호출
+    const url = `${BACKEND_URL}/hospitals?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('backend 응답오류 '+res.status);
+    const json = await res.json();
+    const items = json.hospitals || [];
+    if(!items.length) throw new Error('항목없음');
+
+    let hospitals = items.map(item => {
+      const hlat = parseFloat(item.lat), hlng = parseFloat(item.lng);
+      if(!isFinite(hlat) || !isFinite(hlng)) return null;
+      const hvec = parseInt(item.availBeds || item.er_available || 0) || 0;
+      const hpbdn = 10; // backend가 별도 미제공 → 추정치
+      const occ = Math.min(Math.round((1 - hvec/hpbdn)*100), 99);
+      const d = haversine(lat, lng, hlat, hlng);
+
+      // specialties (Korean names) → depts 매핑
+      const depts = {};
+      Object.keys(DEPT_MAP).forEach(k => { depts[k] = false; });
+      (item.specialties || []).forEach(sp => {
+        const k = SPECIALTY_TO_DEPT[sp];
+        if(k) depts[k] = true;
+      });
+
+      return {
+        name:       item.name,
+        address:    item.address,
+        phone:      item.phone,
+        lat:        hlat,
+        lng:        hlng,
+        occupancy:  occ,
+        available:  occ<60?'ok':occ<80?'warn':'crit',
+        availBeds:  hvec,
+        eta:        Math.round(d/500+3),
+        dist:       (d/1000).toFixed(1),
+        depts,
+        specialties: item.specialties || [],
+        real:       true
+      };
     }).filter(Boolean);
-    if(deptKey&&deptKey!=='general'&&detKtas&&detKtas>=3){const f=hospitals.filter(h=>h.depts[deptKey]);if(f.length>=3)hospitals=f;}
+
+    if(deptKey && deptKey!=='general' && detKtas && detKtas>=3){
+      const f = hospitals.filter(h => h.depts[deptKey]);
+      if(f.length >= 3) hospitals = f;
+    }
     return hospitals;
-  }catch(e){console.warn('[NEMC API]',e.message);return null;}
+  }catch(e){
+    console.warn('[NEMC backend]', e.message);
+    return null;
+  }
 }
 
 function kakaoFallback(lat,lng,dept,cb){
@@ -1493,11 +1831,28 @@ function renderHospList(hospitals,isCrit){
   const sl={ok:'여유',warn:'주의',crit:'포화'};
   const bedClass={ok:'bed-ok',warn:'bed-warn',crit:'bed-crit'};
 
-  document.getElementById('hospList').innerHTML=hospitals.map((h,i)=>`
+  // 활성 프로파일의 기저질환 → 매칭 진료과 추출
+  const profile = (typeof getActiveProfile === 'function') ? getActiveProfile() : null;
+  const userConditions = profile?.conditions || [];
+  const patientSpecialty = (typeof getSpecialtyFromConditions === 'function')
+    ? getSpecialtyFromConditions(userConditions)
+    : null;
+
+  document.getElementById('hospList').innerHTML=hospitals.map((h,i)=>{
+    const specialties = h.specialties || [];
+    const specialtyBadgesHtml = specialties.length > 0
+      ? specialties.map(sp => {
+          const isMatch = patientSpecialty && sp === patientSpecialty;
+          return `<span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;margin:2px 2px 0 0;background:${isMatch?'#E1F5EE':'#f0f0f0'};color:${isMatch?'#0F6E56':'#666'};border:1px solid ${isMatch?'#1D9E75':'#ddd'};font-weight:${isMatch?'600':'400'};">${isMatch?'✅ ':''}${sp}</span>`;
+        }).join('')
+      : '<span style="font-size:10px;color:#aaa;">특수과 정보 없음</span>';
+
+    return `
     <div class="hosp-card${i===0?' rank-1':''}" onclick="openRouteModal(${i})">
       <div class="hosp-rank ${rankClasses[i]}">${i+1}</div>
       <div class="hosp-info">
         <div class="hosp-name">${h.name}</div>
+        <div style="margin-top:4px;">${specialtyBadgesHtml}</div>
         <div class="hosp-meta">
           <div class="hosp-meta-item">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8 2 4.5 5.5 4.5 9.5c0 5.25 7.5 12.5 7.5 12.5s7.5-7.25 7.5-12.5C19.5 5.5 16 2 12 2z"/></svg>
@@ -1516,7 +1871,8 @@ function renderHospList(hospitals,isCrit){
         <div class="score-bar"><div class="score-fill" style="width:${h.score}%"></div></div>
         <div style="font-size:10px;color:var(--text-hint);margin-top:3px;text-align:right;">${!h.real?'시뮬레이션':''}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   // 현재 병원 목록 저장 (모달에서 참조)
   window._currentHospitals = hospitals;
@@ -1697,5 +2053,93 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
   document.head.appendChild(s);
 })();
 </script>
+
+<!-- 사용자 프로파일 모달 -->
+<div id="profile-modal" style="
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+">
+  <div style="
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    width: 90%;
+    max-width: 400px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  ">
+    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 4px;" id="modal-title">건강 프로파일 입력</h3>
+    <p style="font-size: 12px; color: #888; margin-bottom: 16px;">한 번 저장하면 이후 자동으로 적용됩니다.</p>
+
+    <div style="margin-bottom: 10px;">
+      <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">이름 (구분용)</label>
+      <input type="text" id="modal-username" placeholder="예: 홍길동"
+        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+      <div>
+        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">나이</label>
+        <input type="number" id="modal-age" placeholder="예: 67" min="0" max="120"
+          style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+      </div>
+      <div>
+        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">성별</label>
+        <select id="modal-gender"
+          style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+          <option value="">선택</option>
+          <option value="남">남</option>
+          <option value="여">여</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 10px;">
+      <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">기저질환 (쉼표로 구분)</label>
+      <input type="text" id="modal-conditions" placeholder="예: 고혈압, 당뇨, 관상동맥질환"
+        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+    </div>
+
+    <div style="margin-bottom: 10px;">
+      <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">복용 중인 약 (쉼표로 구분)</label>
+      <input type="text" id="modal-medications" placeholder="예: 아스피린 100mg, 메트포르민"
+        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+    </div>
+
+    <div style="margin-bottom: 10px;">
+      <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">알레르기 (쉼표로 구분)</label>
+      <input type="text" id="modal-allergies" placeholder="예: 페니실린, 조영제"
+        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">기존에 다니던 병원</label>
+      <input type="text" id="modal-hospital" placeholder="예: 세브란스병원 심장내과"
+        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+      <button onclick="saveProfileFromModal()" style="
+        flex: 1; padding: 10px;
+        background: #7F77DD; color: #fff;
+        border: none; border-radius: 8px;
+        font-size: 13px; font-weight: 500; cursor: pointer;
+      ">저장</button>
+      <button onclick="closeProfileModal()" style="
+        flex: 1; padding: 10px;
+        background: transparent; color: #666;
+        border: 1px solid #ddd; border-radius: 8px;
+        font-size: 13px; cursor: pointer;
+      ">취소</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
