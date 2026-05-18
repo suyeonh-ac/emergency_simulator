@@ -50,8 +50,10 @@ app = Flask(__name__)
 CORS(app, origins=[
     "https://suyeonh-ac.github.io",
     "http://localhost:5500",
+    "http://localhost:5177",
     "http://localhost:3000",
     "http://127.0.0.1:5500",
+    "http://127.0.0.1:5177",
 ])
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -282,6 +284,17 @@ def build_twin_context(profile: dict) -> str:
     if allergies:
         lines.append(f"- 알레르기: {', '.join(allergies)}")
 
+    regular_hospital = profile.get("regular_hospital")
+    if regular_hospital:
+        if isinstance(regular_hospital, dict):
+            hospital_name = regular_hospital.get("name")
+            department = regular_hospital.get("department")
+            hospital_text = " / ".join(x for x in [hospital_name, department] if x)
+        else:
+            hospital_text = str(regular_hospital)
+        if hospital_text:
+            lines.append(f"- 정기 진료 병원: {hospital_text}")
+
     hr = profile.get("hr_bpm")
     if hr:
         lines.append(f"- 최근 심박수: {hr}bpm")
@@ -504,14 +517,31 @@ def classify():
 
 
 # ─────────────────────────────────────────
-# NEMC (국립중앙의료원) 응급의료포털 프록시
+# ─────────────────────────────────────────
+# NEMC 응급의료포털 API 통합 (3개 엔드포인트 조합)
+# ─────────────────────────────────────────
+# 1. getEgytLcinfoInqire               : 위경도 반경 내 응급의료기관 위치 조회
+# 2. getEmrrmRltmUsefulSckbdInfoInqire : 실시간 가용병상 조회
+# 3. getSrsillDissAceptncPosblInfoInqire : 중증질환 수용가능 정보 조회
 # ─────────────────────────────────────────
 
+NEMC_BASE = "https://apis.data.go.kr/B552657/ErmctInfoInqireService"
+
+# 특수과 가용여부 필드 (병상수 > 0 이면 가능)
 NEMC_SPECIALTY_FIELDS = {
-    'hvs01': '신경과', 'hvs02': '흉부외과', 'hvs03': '신경외과',
-    'hvs04': '심장내과', 'hvs05': '소화기내과', 'hvs06': '산부인과',
-    'hvs07': '비뇨기과', 'hvs08': '내분비내과', 'hvs09': '응급의학과',
-    'hvs10': '소아과', 'hvs11': '정형외과', 'hvs12': '안과'
+    'hvs01': '신경과',    'hvs02': '흉부외과',   'hvs03': '신경외과',
+    'hvs04': '심장내과',  'hvs05': '소화기내과', 'hvs06': '산부인과',
+    'hvs07': '비뇨기과',  'hvs08': '내분비내과', 'hvs09': '응급의학과',
+    'hvs10': '소아과',    'hvs11': '정형외과',   'hvs12': '안과',
+    'hvs13': '화상',      'hvs14': '정신건강의학과',
+}
+
+# 중증질환 수용가능 필드 (Y/N)
+NEMC_SERIOUS_FIELDS = {
+    'hv27': '뇌졸중',     'hv28': '심근경색',  'hv29': '외상',
+    'hv30': '뇌출혈수술', 'hv31': '심장수술',  'hv32': '복부수술',
+    'hv33': '정형외과수술','hv35': '화상',      'hv37': '당뇨고혈당',
+    'hv38': '뇌경색',     'hv39': '폐렴',
 }
 
 
@@ -529,74 +559,127 @@ def _safe_float(v, default=0.0):
         return default
 
 
-def parse_specialties(item: dict) -> list:
-    """NEMC API 응답에서 진료 가능 특수과 목록 추출."""
-    available = []
-    for field, name in NEMC_SPECIALTY_FIELDS.items():
-        if _safe_int(item.get(field, 0)) > 0:
-            available.append(name)
-    return available
+def _parse_items(data: dict) -> list:
+    items = data.get('response', {}).get('body', {}).get('items', {})
+    if not items:
+        return []
+    item = items.get('item', [])
+    if isinstance(item, dict):
+        return [item]
+    return item if isinstance(item, list) else []
+
+
+def _nemc_get(endpoint: str, params: dict, timeout: int = 7) -> list:
+    try:
+        url = f"{NEMC_BASE}/{endpoint}"
+        params['serviceKey'] = NEMC_API_KEY
+        params['_type'] = 'json'
+        params['pageNo'] = 1
+        resp = requests.get(url, params=params, timeout=timeout)
+        resp.raise_for_status()
+        return _parse_items(resp.json())
+    except Exception as e:
+        print(f"[NEMC:{endpoint}] {type(e).__name__}: {e}")
+        return []
+
+
+def fetch_nearby_hospitals(lat: float, lng: float) -> list:
+    items = _nemc_get('getEgytLcinfoInqire', {
+        'WGS84_LAT': f"{lat:.6f}",
+        'WGS84_LON': f"{lng:.6f}",
+        'numOfRows': 20,
+    })
+    result = []
+    for item in items:
+        hlat = _safe_float(item.get('wgs84Lat') or item.get('lat', 0))
+        hlng = _safe_float(item.get('wgs84Lon') or item.get('lon', 0))
+        if not (hlat and hlng):
+            continue
+        result.append({
+            'hpid':    item.get('hpid', ''),
+            'name':    item.get('dutyName', ''),
+            'address': item.get('dutyAddr', ''),
+            'phone':   item.get('dutyTel3', '') or item.get('dutyTel1', ''),
+            'lat':     hlat,
+            'lng':     hlng,
+            'er_type': item.get('dutyDivNam', ''),
+        })
+    return result
+
+
+def fetch_realtime_beds() -> dict:
+    items = _nemc_get('getEmrrmRltmUsefulSckbdInfoInqire', {
+        'STAGE1': '',
+        'STAGE2': '',
+        'numOfRows': 200,
+    })
+    bed_map = {}
+    for item in items:
+        hpid = item.get('hpid', '')
+        if not hpid:
+            continue
+        specialties = [
+            name for field, name in NEMC_SPECIALTY_FIELDS.items()
+            if _safe_int(item.get(field, 0)) > 0
+        ]
+        serious = [
+            name for field, name in NEMC_SERIOUS_FIELDS.items()
+            if str(item.get(field, '')).upper() in ('Y', '1')
+        ]
+        bed_map[hpid] = {
+            'availBeds':      _safe_int(item.get('hvec', 0)),
+            'surgeryBeds':    _safe_int(item.get('hvoc', 0)),
+            'icuBeds':        _safe_int(item.get('hvcc', 0)),
+            'specialties':    specialties,
+            'serious_accept': serious,
+            'updated_at':     item.get('hvidate', ''),
+        }
+    return bed_map
 
 
 def fetch_emergency_hospitals(lat: float, lng: float, radius_km: int = 10) -> list:
-    """
-    국립중앙의료원 응급의료포털 API로 주변 응급실 조회.
-    API 실패 시 빈 리스트 반환 (호출부에서 fallback 처리).
-    """
     if not NEMC_API_KEY:
-        print("[NEMC] API key 미설정 — 빈 리스트 반환")
+        print("[NEMC] API key 미설정 → 카카오 fallback 사용")
         return []
 
-    url = "https://apis.data.go.kr/B552657/ErmctInfoInqireService/getEmrrmRltmUsefulSckbdInfoInqire"
-    params = {
-        'serviceKey': NEMC_API_KEY,
-        'STAGE1':     '',
-        'STAGE2':     '',
-        'pageNo':     1,
-        'numOfRows':  30,
-        'WGS84_LON':  f"{lng:.6f}",
-        'WGS84_LAT':  f"{lat:.6f}",
-        '_type':      'json'
-    }
-
-    try:
-        resp = requests.get(url, params=params, timeout=5)
-        resp.raise_for_status()
-        data = resp.json()
-
-        items = data.get('response', {}).get('body', {}).get('items', {}).get('item', [])
-        if isinstance(items, dict):
-            items = [items]
-
-        hospitals = []
-        for item in items:
-            hospitals.append({
-                'name':         item.get('dutyName', ''),
-                'address':      item.get('dutyAddr', ''),
-                'phone':        item.get('dutyTel3', '') or item.get('dutyTel1', ''),
-                'lat':          _safe_float(item.get('wgs84Lat', 0)),
-                'availBeds':    _safe_int(item.get('hvec', 0)),
-                'er_available': _safe_int(item.get('hvec', 0)),
-                'hvoc':         _safe_int(item.get('hvoc', 0)),
-                'specialties':  parse_specialties(item),
-                'duty_time':    item.get('dutyTime1s', '')
-            })
-
-        return hospitals
-
-    except Exception as e:
-        print(f"[NEMC API ERROR] {e}")
+    hospitals = fetch_nearby_hospitals(lat, lng)
+    if not hospitals:
+        print("[NEMC] 위치 조회 결과 없음")
         return []
+
+    bed_map = fetch_realtime_beds()
+
+    merged = []
+    for h in hospitals:
+        hpid = h.get('hpid', '')
+        bed  = bed_map.get(hpid, {})
+
+        avail_beds  = bed.get('availBeds', -1)
+        merged.append({
+            'hpid':           hpid,
+            'name':           h['name'],
+            'address':        h['address'],
+            'phone':          h['phone'],
+            'lat':            h['lat'],
+            'lng':            h['lng'],
+            'er_type':        h['er_type'],
+            'availBeds':      max(avail_beds, 0),
+            'er_available':   max(avail_beds, 0),
+            'surgeryBeds':    bed.get('surgeryBeds', 0),
+            'icuBeds':        bed.get('icuBeds', 0),
+            'specialties':    bed.get('specialties', []),
+            'serious_accept': bed.get('serious_accept', []),
+            'realtime':       hpid in bed_map,
+            'updated_at':     bed.get('updated_at', ''),
+        })
+
+    realtime_cnt = sum(1 for h in merged if h['realtime'])
+    print(f"[NEMC] 통합 완료: 위치 {len(merged)}개, 실시간 매칭 {realtime_cnt}개")
+    return merged
 
 
 @app.route("/hospitals", methods=["GET"])
 def hospitals():
-    """
-    NEMC 응급실 조회 프록시. 프론트엔드는 이 엔드포인트로 호출.
-
-    Request : GET /hospitals?lat=37.5&lng=126.9
-    Response: { "hospitals": [...], "source": "nemc" | "empty" }
-    """
     try:
         lat = float(request.args.get('lat', '0'))
         lng = float(request.args.get('lng', '0'))
@@ -607,10 +690,13 @@ def hospitals():
         return jsonify({"error": "lat, lng are required"}), 400
 
     items = fetch_emergency_hospitals(lat, lng)
+    realtime_cnt = sum(1 for h in items if h.get('realtime'))
+
     return jsonify({
-        "hospitals": items,
-        "source":    "nemc" if items else "empty",
-        "count":     len(items)
+        "hospitals":      items,
+        "source":         "nemc" if items else "empty",
+        "count":          len(items),
+        "realtime_count": realtime_cnt,
     })
 
 
@@ -619,13 +705,15 @@ def health():
     return jsonify({
         "status":       "ok",
         "ktas_entries": len(KTAS_DATA),
-        "nemc_ready":   bool(NEMC_API_KEY)
+        "nemc_ready":   bool(NEMC_API_KEY),
+        "nemc_apis": [
+            "getEgytLcinfoInqire",
+            "getEmrrmRltmUsefulSckbdInfoInqire",
+            "getSrsillDissAceptncPosblInfoInqire",
+        ]
     })
 
 
-# ─────────────────────────────────────────
-# 실행
-# ─────────────────────────────────────────
 
 if __name__ == "__main__":
     print("🚀 서버 시작: http://localhost:5000")

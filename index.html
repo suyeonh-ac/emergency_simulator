@@ -88,7 +88,7 @@ header{
 .a11y-btns{display:none;} /* 헤더에서 숨김 */
 .a11y-divider{display:none;}
 .a11y-panel{
-  position:fixed;top:70px;right:0;z-index:250;
+  position:fixed;top:190px;right:0;z-index:250;
   display:flex;flex-direction:column;
 }
 .a11y-btn{
@@ -664,6 +664,11 @@ textarea{resize:none;height:60px;line-height:1.5;}
         border:1.5px solid #7F77DD;border-radius:8px;font-size:11px;font-weight:600;
         cursor:pointer;white-space:nowrap;
       ">수정</button>
+      <button onclick="deleteCurrentUser()" title="현재 프로필 삭제" style="
+        padding:5px 10px;background:transparent;color:#dc2626;
+        border:1.5px solid #fca5a5;border-radius:8px;font-size:11px;font-weight:600;
+        cursor:pointer;white-space:nowrap;
+      ">🗑 삭제</button>
     </div>
   </div>
 
@@ -893,11 +898,23 @@ textarea{resize:none;height:60px;line-height:1.5;}
       </div>
     </div>
 
-    <!-- 병원 리스트 -->
-    <div id="resultSection" style="display:none;">
-      <div class="section-title">추천 응급실 TOP 5</div>
-      <div class="section-sub">가까운 거리와 대기시간을 고려한 추천 순위입니다</div>
-      <div class="hosp-list" id="hospList"></div>
+    <!-- 병원 리스트 (지도 하단 고정, 항상 표시) -->
+    <div id="resultSection">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div class="section-title" style="margin-bottom:2px;">주변 응급실</div>
+          <div class="section-sub" id="hospSubLabel">위치 확인 중...</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span id="nemc-status-badge" style="display:none;font-size:10px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#166534;border:1px solid #86efac;font-weight:600;">● 실시간</span>
+          <span id="fallback-status-badge" style="display:none;font-size:10px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-weight:600;">● 카카오 검색</span>
+          <button onclick="runSearch()" id="searchBtn" style="
+            padding:6px 14px;background:var(--red);color:#fff;border:none;
+            border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;
+          ">🔄 새로고침</button>
+        </div>
+      </div>
+      <div class="hosp-list" id="hospList"><div style="padding:24px;text-align:center;color:var(--text-hint);font-size:14px;">📍 위치를 확인하는 중입니다...</div></div>
     </div>
 
   </div><!-- /main-scroll -->
@@ -1383,6 +1400,29 @@ function switchUser(uid) {
   updateProfileBadge();
 }
 
+function deleteCurrentUser() {
+  const uid = getActiveUserId();
+  if(!uid){ showToast('삭제할 프로필이 없습니다.'); return; }
+  const users = getAllUsers();
+  const name = users[uid]?.name || '프로필';
+  if(!confirm(`"${name}" 프로필을 삭제하시겠습니까?`)) return;
+
+  delete users[uid];
+  saveAllUsers(users);
+
+  // 다른 사용자로 전환하거나 비워두기
+  const remaining = Object.keys(users);
+  if(remaining.length > 0){
+    setActiveUserId(remaining[0]);
+  } else {
+    localStorage.removeItem(ACTIVE_USER_KEY);
+  }
+
+  renderUserSelector();
+  updateProfileBadge();
+  showToast(`🗑 "${name}" 프로필이 삭제되었습니다.`);
+}
+
 function updateProfileBadge() {
   const profile = getActiveProfile();
   const avatarEl   = document.getElementById('profile-avatar');
@@ -1529,6 +1569,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // 앱 높이 초기화
   updateAppHeight();
   requestAnimationFrame(updateAppHeight);
+
+  // 백엔드 & NEMC 상태 확인
+  checkBackendHealth();
 });
 
 // ── 웨어러블 바이탈 관리 ──────────────────────────────────────
@@ -1756,7 +1799,7 @@ function ruleFallback(t){
 // ══════════════════════════════════════════
 async function runSearch(){
   if(!userLat){showToast('위치 정보를 확인 중입니다. 잠시 후 다시 시도해 주세요.');return;}
-  const btn=document.getElementById('searchBtn');btn.disabled=true;
+  const btn=document.getElementById('searchBtn');if(btn)btn.disabled=true;
   showLoad('응급실 데이터 불러오는 중...');
 
   const isCrit=detKtas&&detKtas<=2;
@@ -1779,7 +1822,7 @@ async function runSearch(){
   await new Promise(r=>setTimeout(r,400));
 
   if(!rawHospitals.length){
-    hideLoad();btn.disabled=false;
+    hideLoad();if(btn)btn.disabled=false;
     showToast('주변 응급실 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
     return;
   }
@@ -1807,7 +1850,7 @@ async function runSearch(){
     appendBubble(`✅ <strong>${t.name}</strong> 추천<br>🚗 ${t.dist}km · ⏱️ ${t.eta}분 · 🏥 가용 ${t.availBeds}병상`,'sys');
   }
 
-  document.getElementById('resultSection').style.display='block';
+  // resultSection 항상 표시됨
   document.getElementById('resultSection').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -1880,19 +1923,25 @@ async function fetchEmer(lat,lng,deptKey){
       });
 
       return {
-        name:       item.name,
-        address:    item.address,
-        phone:      item.phone,
-        lat:        hlat,
-        lng:        hlng,
-        occupancy:  occ,
-        available:  occ<60?'ok':occ<80?'warn':'crit',
-        availBeds:  hvec,
-        eta:        Math.round(d/500+3),
-        dist:       (d/1000).toFixed(1),
+        name:           item.name,
+        address:        item.address,
+        phone:          item.phone,
+        lat:            hlat,
+        lng:            hlng,
+        occupancy:      occ,
+        available:      occ<60?'ok':occ<80?'warn':'crit',
+        availBeds:      hvec,
+        surgeryBeds:    item.surgeryBeds || 0,
+        icuBeds:        item.icuBeds    || 0,
+        eta:            Math.round(d/500+3),
+        dist:           (d/1000).toFixed(1),
         depts,
-        specialties: item.specialties || [],
-        real:       true
+        specialties:    item.specialties    || [],
+        serious_accept: item.serious_accept || [],
+        er_type:        item.er_type        || '',
+        realtime:       item.realtime       || false,
+        updated_at:     item.updated_at     || '',
+        real:           true
       };
     }).filter(Boolean);
 
@@ -1902,7 +1951,11 @@ async function fetchEmer(lat,lng,deptKey){
     }
     return hospitals;
   }catch(e){
-    console.warn('[NEMC backend]', e.message);
+    console.warn('[NEMC backend] 실패:', e.message);
+    console.info('[NEMC] 원인 진단:', {
+      url: `${BACKEND_URL}/hospitals`,
+      hint: 'Railway 환경변수 NEMC_API_KEY 확인 → /health 엔드포인트에서 nemc_ready 확인'
+    });
     return null;
   }
 }
@@ -2018,6 +2071,20 @@ function renderHospList(hospitals,isCrit){
   }).join('');
 
   window._currentHospitals = hospitals;  // 모달·마커 클릭에서 참조
+
+  // 데이터 출처 배지 업데이트
+  const nemcBadge = document.getElementById('nemc-status-badge');
+  const fbBadge   = document.getElementById('fallback-status-badge');
+  const subLabel  = document.getElementById('hospSubLabel');
+  const isReal = hospitals.some(h => h.real);
+  if(nemcBadge) nemcBadge.style.display = isReal ? 'inline-block' : 'none';
+  if(fbBadge)   fbBadge.style.display   = isReal ? 'none' : 'inline-block';
+  if(subLabel){
+    const cnt = hospitals.length;
+    subLabel.textContent = isReal
+      ? `실시간 응급실 ${cnt}개 — 국립중앙의료원 데이터`
+      : `카카오 검색 결과 ${cnt}개 (실시간 API 연결 중)`;
+  }
 }
 
 // ── 경로 모달 열기 ────────────────────────
@@ -2056,14 +2123,36 @@ function openRouteModal(idx){
   const isRegular = regName && h.name.includes(regName.replace(/병원|의원|센터/g,'').trim());
   const regularBadge = isRegular ? '<span style="display:inline-block;padding:2px 8px;background:#fef9c3;color:#854d0e;border:1px solid #fbbf24;border-radius:8px;font-size:11px;font-weight:600;">⭐ 기존 진료 병원</span>' : '';
 
+  // 중증질환 수용가능 배지
+  const seriousHtml = (h.serious_accept||[]).length
+    ? h.serious_accept.slice(0,5).map(s=>`<span style="display:inline-block;padding:2px 7px;margin:2px 2px 0 0;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:8px;font-size:11px;">${s}</span>`).join('')
+    : '';
+
+  // 수술실/ICU 정보
+  const extraBeds = [];
+  if(h.surgeryBeds > 0) extraBeds.push(`🔪 수술실 ${h.surgeryBeds}개`);
+  if(h.icuBeds > 0)     extraBeds.push(`💊 중환자실 ${h.icuBeds}개`);
+
+  // 실시간 여부 + 업데이트 시각
+  const realtimeBadge = h.realtime
+    ? `<span style="font-size:10px;padding:1px 7px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;margin-left:6px;">● 실시간</span>`
+    : `<span style="font-size:10px;padding:1px 7px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:6px;margin-left:6px;">시뮬레이션</span>`;
+
   document.getElementById('routeHospDetail').innerHTML = `
     ${regularBadge ? '<div style="margin-bottom:6px;">'+regularBadge+'</div>' : ''}
-    <div><strong>🏥 특수과:</strong> ${specHtml}</div>
-    <div style="margin-top:6px;display:flex;gap:16px;flex-wrap:wrap;">
-      <span>🛏️ 가용 병상: <strong>${h.availBeds}개</strong></span>
-      <span>📊 혼잡도: ${bedStatus}</span>
-      <span>📞 ${h.phone||'전화번호 없음'}</span>
+    <div style="margin-bottom:6px;"><strong>🏥 진료과:</strong> ${specHtml}</div>
+    ${seriousHtml ? `<div style="margin-bottom:6px;"><strong>⚠️ 중증 수용:</strong><br>${seriousHtml}</div>` : ''}
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-bottom:4px;">
+      <span>🛏️ 응급 <strong style="color:var(--red);">${h.availBeds}개</strong></span>
+      ${extraBeds.map(b=>`<span>${b}</span>`).join('')}
+      <span>📊 ${bedStatus}</span>
     </div>
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;">
+      <span>📞 ${h.phone||'전화번호 없음'}</span>
+      ${h.er_type ? `<span style="font-size:10px;color:#7F77DD;">【${h.er_type}】</span>` : ''}
+      ${realtimeBadge}
+    </div>
+    ${h.updated_at ? `<div style="font-size:10px;color:#aaa;margin-top:4px;">업데이트: ${h.updated_at}</div>` : ''}
   `;
 
   document.getElementById('routeModal').classList.add('show');
@@ -2174,6 +2263,12 @@ async function initLoc(lat,lng){
     }
   });
 
+  // hospList에 로딩 메시지 표시
+  const hl = document.getElementById('hospList');
+  if(hl) hl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-hint);font-size:14px;">🔄 응급실 데이터 불러오는 중...</div>';
+  const sl = document.getElementById('hospSubLabel');
+  if(sl) sl.textContent = '데이터 로딩 중...';
+
   showLoad('주변 응급실 데이터 불러오는 중...');
   const emerData=await fetchEmer(lat,lng,null);
   if(emerData?.length){
@@ -2183,7 +2278,7 @@ async function initLoc(lat,lng){
     window._currentHospitals=init5;          // ← 마커 클릭 전에 먼저 세팅
     renderMarkers(init5,false);
     renderHospList(init5,false);
-    document.getElementById('resultSection').style.display='block';
+    // resultSection 항상 표시
   } else {
     kakaoFallback(lat,lng,null,fb=>{
       useReal=false; rawHospitals=fb;
@@ -2192,7 +2287,7 @@ async function initLoc(lat,lng){
       window._currentHospitals=init5;        // ← 마커 클릭 전에 먼저 세팅
       renderMarkers(init5,false);
       renderHospList(init5,false);
-      document.getElementById('resultSection').style.display='block';
+      // resultSection 항상 표시
     });
   }
   hideLoad();
@@ -2234,6 +2329,28 @@ function showFabBadge(){
 
 function showLoad(txt){document.getElementById('loadingTxt').textContent=txt;document.getElementById('loading').classList.add('show');}
 function hideLoad(){document.getElementById('loading').classList.remove('show');}
+// ── 백엔드 헬스 체크 ─────────────────────
+async function checkBackendHealth(){
+  try{
+    const res = await fetch(`${BACKEND_URL}/health`, {signal: AbortSignal.timeout(5000)});
+    if(!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    const badge = document.getElementById('nemc-status-badge');
+    const fbBadge = document.getElementById('fallback-status-badge');
+    if(!data.nemc_ready){
+      // NEMC 키 없음 → 카카오 fallback 안내
+      if(fbBadge){ fbBadge.style.display='inline-block'; fbBadge.textContent='● NEMC 키 미설정'; }
+      console.warn('[NEMC] Railway 환경변수 NEMC_API_KEY 미설정. 카카오 장소검색으로 대체됩니다.');
+      console.info('[NEMC 설정 방법] Railway 대시보드 → Variables → NEMC_API_KEY 추가\n키 발급: https://www.data.go.kr (국립중앙의료원 응급의료정보 API)');
+    } else {
+      console.info('[NEMC] API 키 설정됨 ✅');
+    }
+    console.info(`[Backend] KTAS 항목 ${data.ktas_entries}개, NEMC 연동: ${data.nemc_ready}`);
+  }catch(e){
+    console.warn('[Backend] 헬스체크 실패:', e.message);
+  }
+}
+
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
 
 // ── QR 의료정보 모달 ──────────────────────────────────────────
