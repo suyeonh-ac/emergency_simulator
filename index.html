@@ -1512,6 +1512,23 @@ function saveProfileFromModal() {
 document.addEventListener('DOMContentLoaded', () => {
   renderUserSelector();
   updateProfileBadge();
+
+  // QR 모달 배경 클릭 닫기
+  const qm = document.getElementById('qrModal');
+  if(qm) qm.addEventListener('click', e=>{ if(e.target.id==='qrModal') closeQrModal(); });
+
+  // 프로필 로드 시 챗봇 안내
+  const profile = (typeof getActiveProfile==='function') ? getActiveProfile() : null;
+  if(profile && profile.name){
+    const condStr = (profile.conditions||[]).length ? ` · 기저질환 ${profile.conditions.length}개 반영` : '';
+    setTimeout(()=>appendBubble(
+      `👤 <strong>${profile.name}</strong>님 프로파일 로드됨${condStr}.<br>증상을 입력하시면 맞춤 분류를 시작합니다.`,'sys'
+    ), 300);
+  }
+
+  // 앱 높이 초기화
+  updateAppHeight();
+  requestAnimationFrame(updateAppHeight);
 });
 
 // ── 웨어러블 바이탈 관리 ──────────────────────────────────────
@@ -1906,9 +1923,12 @@ function buildFb(data,lat,lng,dept){
     const hlat=parseFloat(p.y),hlng=parseFloat(p.x),d=haversine(lat,lng,hlat,hlng);
     const depts={};Object.keys(DEPT_MAP).forEach(k=>{depts[k]=Math.random()>.4;});
     if(dept&&dept!=='general')depts[dept]=true;
+    // 카카오 fallback - 진료과 배열도 포함해 모달에서 정보 표시 가능하게
+    const specList = Object.entries(depts).filter(([,v])=>v).map(([k])=>DEPT_MAP[k]?.label).filter(Boolean);
     return{name:p.place_name,address:p.address_name,phone:p.phone,lat:hlat,lng:hlng,
       occupancy:occ,available:occ<60?'ok':occ<80?'warn':'crit',
-      availBeds:Math.floor(Math.random()*15+2),eta:Math.round(d/500+3),dist:(d/1000).toFixed(1),depts,real:false};
+      availBeds:Math.floor(Math.random()*15+2),eta:Math.round(d/500+3),dist:(d/1000).toFixed(1),
+      depts,specialties:specList,real:false,score:0};
   });
 }
 
@@ -1997,8 +2017,7 @@ function renderHospList(hospitals,isCrit){
     </div>`;
   }).join('');
 
-  // 현재 병원 목록 저장 (모달에서 참조)
-  window._currentHospitals = hospitals;
+  window._currentHospitals = hospitals;  // 모달·마커 클릭에서 참조
 }
 
 // ── 경로 모달 열기 ────────────────────────
@@ -2157,8 +2176,25 @@ async function initLoc(lat,lng){
 
   showLoad('주변 응급실 데이터 불러오는 중...');
   const emerData=await fetchEmer(lat,lng,null);
-  if(emerData?.length){useReal=true;rawHospitals=emerData;renderMarkers(emerData.slice(0,5),false);}
-  else{kakaoFallback(lat,lng,null,fb=>{useReal=false;rawHospitals=fb;renderMarkers(fb.slice(0,5),false);});}
+  if(emerData?.length){
+    useReal=true; rawHospitals=emerData;
+    const init5=emerData.slice(0,5).map(h=>({...h,score:calcScore(h,null,null)}));
+    init5.sort((a,b)=>b.score-a.score);
+    window._currentHospitals=init5;          // ← 마커 클릭 전에 먼저 세팅
+    renderMarkers(init5,false);
+    renderHospList(init5,false);
+    document.getElementById('resultSection').style.display='block';
+  } else {
+    kakaoFallback(lat,lng,null,fb=>{
+      useReal=false; rawHospitals=fb;
+      const init5=fb.slice(0,5).map(h=>({...h,score:calcScore(h,null,null)}));
+      init5.sort((a,b)=>b.score-a.score);
+      window._currentHospitals=init5;        // ← 마커 클릭 전에 먼저 세팅
+      renderMarkers(init5,false);
+      renderHospList(init5,false);
+      document.getElementById('resultSection').style.display='block';
+    });
+  }
   hideLoad();
 }
 
@@ -2203,7 +2239,7 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 // ── QR 의료정보 모달 ──────────────────────────────────────────
 function buildQrData(){
   const profile = (typeof getActiveProfile==='function') ? getActiveProfile() : null;
-  if(!profile) return null;
+  // 프로필 없어도 기본 QR 생성 (이름 미상으로 처리)
   const vitals = (typeof currentVitals!=='undefined') ? currentVitals : {};
   return {
     name:       profile.name || '미상',
@@ -2226,11 +2262,26 @@ function buildQrData(){
 }
 
 function openQrModal(){
-  const data = buildQrData();
-  if(!data){
-    showToast('⚠️ 프로파일을 먼저 등록해 주세요.');
-    return;
-  }
+  const profile = (typeof getActiveProfile==='function') ? getActiveProfile() : null;
+  const vitals = (typeof currentVitals!=='undefined') ? currentVitals : {};
+  const data = {
+    name:       profile?.name       || '미상',
+    age:        profile?.age        || '미상',
+    gender:     profile?.gender     || '미상',
+    blood_type: profile?.blood_type || '미상',
+    conditions: (profile?.conditions||[]).join(', ') || '없음',
+    medications:(profile?.medications||[]).join(', ') || '없음',
+    allergies:  (profile?.allergies||[]).join(', ') || '없음',
+    hospital: (()=>{
+      const r=profile?.regular_hospital;
+      if(!r) return '없음';
+      return typeof r==='object'?`${r.name||''} ${r.department||''}`.trim():r;
+    })(),
+    hr:   vitals.hr   || '--',
+    spo2: vitals.spo2 || '--',
+    bp:   (vitals.bp_sys&&vitals.bp_dia)?`${vitals.bp_sys}/${vitals.bp_dia}`:'--',
+    ts:   new Date().toLocaleString('ko-KR')
+  };
 
   const qrText = [
     '[응급 의료정보]',
@@ -2267,12 +2318,7 @@ function closeQrModal(){
   document.getElementById('qrModal').classList.remove('show');
 }
 
-// QR 모달 배경 클릭 시 닫기
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('qrModal').addEventListener('click', e=>{
-    if(e.target.id==='qrModal') closeQrModal();
-  });
-});
+// QR 모달 배경 닫기 → DOMContentLoaded에 통합됨
 
 
 function updateAppHeight(){
