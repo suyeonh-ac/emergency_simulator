@@ -114,7 +114,8 @@ header{
 .a11y-btn-label{font-size:10px;font-weight:700;letter-spacing:-.01em;text-align:center;line-height:1.2;}
 
 /* ── 전체 레이아웃: 좌측 챗봇 고정 + 우측 스크롤 ── */
-.app{display:flex;height:100vh;padding-top:54px;}
+/* app-top-offset은 JS updateAppHeight()가 동적으로 계산해서 덮어씀 */
+.app{display:flex;height:calc(100vh - 152px);padding-top:0;min-height:0;margin-top:0;}
 
 /* ── 좌측 챗봇 패널 ── */
 .chat-panel{
@@ -326,7 +327,7 @@ textarea{resize:none;height:60px;line-height:1.5;}
 
 /* ── 지도 ── */
 .map-wrap{position:relative;border-radius:var(--radius);overflow:hidden;height:480px;box-shadow:var(--shadow);margin-bottom:24px;}
-#map{width:100%;height:100%;}
+#map{width:100%;height:100%;min-height:480px;}
 .map-info{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.95);border-radius:10px;padding:8px 12px;font-size:var(--fs-xs);color:var(--text-sub);box-shadow:var(--shadow);}
 .map-info strong{display:block;font-size:var(--fs-xs);color:var(--text);margin-bottom:2px;}
 
@@ -451,7 +452,7 @@ textarea{resize:none;height:60px;line-height:1.5;}
   .a11y-btn-label { font-size: 9px; }
 
   /* 앱 레이아웃: 세로 단일 컬럼 */
-  .app { flex-direction: column; padding-top: 50px; }
+  .app { flex-direction: column; padding-top: 0; height: calc(100vh - 148px); }
 
   /* ── 챗봇 패널: 기본 숨김 → 드로어로 변환 ── */
   .chat-panel {
@@ -780,10 +781,6 @@ textarea{resize:none;height:60px;line-height:1.5;}
       <strong>텍스트</strong> 또는 <strong>🎤 음성</strong>으로 입력하시면 KTAS 중증도를 자동 분류합니다.<br>
       <em style="color:var(--text-hint);font-size:var(--fs-xs);">예: "갑자기 가슴이 쥐어짜고 왼팔이 저려요"</em></div>
     </div>
-    <div class="typing-wrap" id="typing">
-      <div class="typing-dots"><span></span><span></span><span></span></div>
-    </div>
-
     <div class="chat-input-wrap">
       <div class="voice-status" id="voiceStatus">🎤 녹음 중<span class="voice-timer" id="voiceTimer">5</span>초</div>
       <input class="chat-input" id="chatIn" type="text" placeholder="증상을 입력하세요..." />
@@ -902,7 +899,14 @@ textarea{resize:none;height:60px;line-height:1.5;}
 const KAKAO_JS_KEY  = 'd70fdcdcee3966203240bcd1e38baf9d';
 const EMER_KEY      = 'ea96888b80ad785fc4faaf0ba1e1af69be3d07a3ca34b05f263c6d7986cb0899';
 const EMER_BASE     = 'https://apis.data.go.kr/B552657/ErmctInfoInqireService';
-const BACKEND_URL   = 'https://web-production-0d56e.up.railway.app';
+const BACKEND_URL   = (() => {
+  const prod = 'https://web-production-0d56e.up.railway.app';
+  if (window.EMERGENCY_BACKEND_URL) return window.EMERGENCY_BACKEND_URL;
+  if (location.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(location.hostname)) {
+    return 'http://127.0.0.1:5000';
+  }
+  return prod;
+})();
 
 const DEPT_MAP = {
   cardiac:{label:'심혈관',field:'hvOryn',kw:['흉통','심정지','좌측 팔 저림','식은땀']},
@@ -956,18 +960,21 @@ function setGender(g){
 }
 
 // 나이 입력 시 19세 이하 → 소아과 자동 설정
-document.getElementById('age').addEventListener('change', function(){
-  const age = parseInt(this.value);
-  if(!isNaN(age) && age <= 19 && age >= 0){
-    detDept = 'peds';
-    showToast(`${age}세 → 소아과 응급실을 우선 탐색합니다.`);
-    // 챗봇에도 안내
-    appendBubble(`${age}세로 확인됩니다. 소아과 응급실을 우선적으로 탐색합니다.`, 'sys');
-  } else if(!isNaN(age) && age > 19 && detDept === 'peds'){
-    // 성인으로 바뀌면 소아과 해제
-    detDept = null;
-  }
-});
+const ageInput = document.getElementById('age');
+if (ageInput) {
+  ageInput.addEventListener('change', function(){
+    const age = parseInt(this.value, 10);
+    if(!isNaN(age) && age <= 19 && age >= 0){
+      detDept = 'peds';
+      showToast(`${age}세 → 소아과 응급실을 우선 탐색합니다.`);
+      // 챗봇에도 안내
+      appendBubble(`${age}세로 확인됩니다. 소아과 응급실을 우선적으로 탐색합니다.`, 'sys');
+    } else if(!isNaN(age) && age > 19 && detDept === 'peds'){
+      // 성인으로 바뀌면 소아과 해제
+      detDept = null;
+    }
+  });
+}
 
 // ── 증상 태그 ─────────────────────────────
 function toggleTag(el){el.classList.toggle('active');}
@@ -1176,6 +1183,8 @@ async function sendChat(){
       if(ktasContext) body.ktas_context = ktasContext;  // 첫 응답 이후 재전송
       const twinPayload = (typeof buildTwinPayload === 'function') ? buildTwinPayload() : null;
       if(twinPayload) body.twin_profile = twinPayload;   // Twin 프로파일 (있을 때만)
+      // 디버그: 콘솔에서 twin 전송 여부 확인 가능
+      console.log('[classify] twin_profile:', twinPayload ? '전송됨 (' + (twinPayload.conditions||[]).join(',') + ')' : '없음 — 사용자 프로파일 미설정');
       // 주변 응급실 목록 (GPT 추천 가중치용)
       if(window._currentHospitals && window._currentHospitals.length){
         body.hospital_list = window._currentHospitals.slice(0,5).map(h => ({
@@ -1188,7 +1197,8 @@ async function sendChat(){
       const res=await fetch(`${BACKEND_URL}/classify`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(body)
+        body:JSON.stringify(body),
+        signal: AbortSignal.timeout(30000)
       });
       if(!res.ok) throw new Error(`서버 오류 ${res.status}`);
       result=await res.json();
@@ -1199,6 +1209,8 @@ async function sendChat(){
 
     }catch(e){
       console.warn('API 실패, 규칙 기반 사용:', e.message);
+      if(e.name==='TimeoutError') showToast('⚠️ 서버 응답 시간 초과 — 로컬 규칙으로 분류합니다.');
+      else if(!e.message.includes('규칙')) showToast('⚠️ 서버 연결 실패 — 로컬 규칙으로 분류합니다.');
       result = { type:'classification', ...ruleFallback(msg) };
     }
 
@@ -1436,12 +1448,22 @@ function saveProfileFromModal() {
   renderUserSelector();
   updateProfileBadge();
   closeProfileModal();
+  showToast(`✅ ${profileData.name} 프로파일이 저장되었습니다.`);
 }
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', () => {
   renderUserSelector();
   updateProfileBadge();
+  // 저장된 프로파일이 있으면 챗봇에 안내 메시지 표시
+  const profile = getActiveProfile();
+  if (profile && profile.name) {
+    const condStr = (profile.conditions||[]).length ? ` (기저질환: ${profile.conditions.join(', ')})` : '';
+    setTimeout(() => appendBubble(
+      `👤 <strong>${profile.name}</strong>님 프로파일이 로드됐습니다${condStr}.<br>증상을 말씀해 주시면 기저질환을 반영해 분류합니다.`,
+      'sys'
+    ), 300);
+  }
 });
 
 // ── 웨어러블 바이탈 관리 ──────────────────────────────────────
@@ -1452,6 +1474,8 @@ function openVitalsInput() {
   const panel = document.getElementById('vitals-input-panel');
   if (!panel) return;
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  // 패널 높이 변경 후 app 높이 재계산
+  requestAnimationFrame(updateAppHeight);
 }
 
 function applyVitalsInput() {
@@ -2043,6 +2067,20 @@ function showFabBadge(){
 function showLoad(txt){document.getElementById('loadingTxt').textContent=txt;document.getElementById('loading').classList.add('show');}
 function hideLoad(){document.getElementById('loading').classList.remove('show');}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+function updateAppHeight(){
+  const app = document.querySelector('.app');
+  if(!app) return;
+  const top = app.getBoundingClientRect().top;
+  const h = Math.max(320, window.innerHeight - top);
+  app.style.height = `${h}px`;
+  // chat-panel도 명시적으로 같은 높이 고정
+  const cp = document.getElementById('chatPanel');
+  if(cp) cp.style.height = `${h}px`;
+}
+window.addEventListener('resize', updateAppHeight);
+// DOMContentLoaded 이후 + 다음 프레임 두 번 실행해 확실히 반영
+document.addEventListener('DOMContentLoaded', () => { updateAppHeight(); requestAnimationFrame(updateAppHeight); });
+requestAnimationFrame(updateAppHeight);
 
 // ── 카카오맵 SDK 로드 ─────────────────────
 (function(){
