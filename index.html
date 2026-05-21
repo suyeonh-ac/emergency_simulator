@@ -1522,6 +1522,59 @@ function closeProfileModal() {
   document.getElementById('profile-modal').style.display = 'none';
 }
 
+// ── Twin 프로파일 JSON 연동 (전역 함수) ─────────────────────
+function syncFromJSON() {
+  const btn = document.getElementById('sync-btn');
+  const sub = document.getElementById('sync-bar-sub');
+
+  // JSON 데이터를 직접 embed (fetch 불필요 — file://, GitHub Pages 모두 작동)
+  const p = {
+    "name": "김순자",
+    "age": 72,
+    "gender": "여",
+    "conditions": ["고혈압", "제2형 당뇨", "만성신장질환"],
+    "medications": ["암로디핀 5mg", "메트포르민 500mg", "아스피린 100mg"],
+    "allergies": ["이부프로펜", "조영제"],
+    "regular_hospital": {
+      "name": "서울대학교병원",
+      "department": "신장내과"
+    }
+  };
+
+  document.getElementById('modal-username').value    = p.name || '';
+  document.getElementById('modal-age').value         = p.age  || '';
+  document.getElementById('modal-gender').value      = p.gender || '';
+  document.getElementById('modal-conditions').value  = (p.conditions  || []).join(', ');
+  document.getElementById('modal-medications').value = (p.medications || []).join(', ');
+  document.getElementById('modal-allergies').value   = (p.allergies   || []).join(', ');
+
+  const rh = p.regular_hospital;
+  document.getElementById('modal-hospital').value =
+    (rh && typeof rh === 'object')
+      ? [rh.name, rh.department].filter(Boolean).join(' ')
+      : (rh || '');
+
+  if (btn) {
+    btn.textContent = '연동 완료 ✓';
+    btn.style.background = '#16a34a';
+  }
+  if (sub) {
+    sub.textContent = `${p.name} 님의 정보가 입력되었습니다`;
+    sub.style.color = '#15803d';
+  }
+
+  setTimeout(() => {
+    if (btn) {
+      btn.textContent = '연동하기';
+      btn.style.background = '#7F77DD';
+    }
+    if (sub) {
+      sub.textContent = '김순자 프로파일을 자동으로 불러옵니다';
+      sub.style.color = '#7c3aed';
+    }
+  }, 3000);
+}
+
 function saveProfileFromModal() {
   const splitTrim = s => s.split(',').map(x => x.trim()).filter(Boolean);
   const name = document.getElementById('modal-username').value.trim();
@@ -2395,52 +2448,6 @@ const rsEncode=(data,ec)=>{
 };
 
 // ── Version / 정보 테이블 (ECC M) ────────
-// ── Twin 프로파일 JSON 연동 ───────────────────────────────────
-function syncFromJSON() {
-  const btn = document.getElementById('sync-btn');
-  const sub = document.getElementById('sync-bar-sub');
-
-  // JSON 파일 내용을 직접 embed (fetch 불필요)
-  const p = {
-    "name": "김순자",
-    "age": 72,
-    "gender": "여",
-    "conditions": ["고혈압", "제2형 당뇨", "만성신장질환"],
-    "medications": ["암로디핀 5mg", "메트포르민 500mg", "아스피린 100mg"],
-    "allergies": ["이부프로펜", "조영제"],
-    "regular_hospital": {
-      "name": "서울대학교병원",
-      "department": "신장내과"
-    }
-  };
-
-  document.getElementById('modal-username').value    = p.name || '';
-  document.getElementById('modal-age').value         = p.age  || '';
-  document.getElementById('modal-gender').value      = p.gender || '';
-  document.getElementById('modal-conditions').value  = (p.conditions  || []).join(', ');
-  document.getElementById('modal-medications').value = (p.medications || []).join(', ');
-  document.getElementById('modal-allergies').value   = (p.allergies   || []).join(', ');
-
-  const rh = p.regular_hospital;
-  document.getElementById('modal-hospital').value =
-    (rh && typeof rh === 'object')
-      ? [rh.name, rh.department].filter(Boolean).join(' ')
-      : (rh || '');
-
-  btn.textContent = '연동 완료 ✓';
-  btn.style.background = '#16a34a';
-  sub.textContent = `${p.name} 님의 정보가 입력되었습니다`;
-  sub.style.color = '#15803d';
-
-  setTimeout(() => {
-    btn.textContent = '연동하기';
-    btn.style.background = '#7F77DD';
-    sub.textContent = '저장된 JSON에서 자동으로 불러옵니다';
-    sub.style.color = '#7c3aed';
-  }, 3000);
-}
-
-
 // [version, total_codewords, data_codewords, ec_codewords_per_block, blocks_group1, blocks_group2]
 const VER_TABLE=[
   null,
@@ -2803,7 +2810,7 @@ requestAnimationFrame(updateAppHeight);
     <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 4px;" id="modal-title">건강 프로파일 입력</h3>
     <p style="font-size: 12px; color: #888; margin-bottom: 12px;">한 번 저장하면 이후 자동으로 적용됩니다.</p>
 
-    <!-- 연동하기 버튼 -->
+    <!-- Twin 프로파일 연동 바 -->
     <div id="sync-bar" style="
       display: flex; align-items: center; justify-content: space-between;
       background: #f5f3ff; border: 1px dashed #a78bfa;
@@ -2811,7 +2818,7 @@ requestAnimationFrame(updateAppHeight);
     ">
       <div>
         <div style="font-size: 12px; font-weight: 600; color: #5b21b6;">Twin 프로파일 연동</div>
-        <div style="font-size: 11px; color: #7c3aed;" id="sync-bar-sub">저장된 JSON에서 자동으로 불러옵니다</div>
+        <div style="font-size: 11px; color: #7c3aed;" id="sync-bar-sub">김순자 프로파일을 자동으로 불러옵니다</div>
       </div>
       <button id="sync-btn" onclick="syncFromJSON()" style="
         padding: 6px 14px; border: none; border-radius: 8px;
