@@ -2440,52 +2440,6 @@ function syncFromJSON() {
   }, 3000);
 }
 
-  try {
-    const res = await fetch('kim_soonja_profile.json');
-    if (!res.ok) throw new Error('파일을 찾을 수 없습니다');
-    const p = await res.json();
-
-    // 폼 자동 입력
-    document.getElementById('modal-username').value   = p.name || '';
-    document.getElementById('modal-age').value        = p.age  || '';
-    document.getElementById('modal-gender').value     = p.gender || '';
-    document.getElementById('modal-conditions').value = (p.conditions  || []).join(', ');
-    document.getElementById('modal-medications').value= (p.medications || []).join(', ');
-    document.getElementById('modal-allergies').value  = (p.allergies   || []).join(', ');
-
-    // regular_hospital: 객체면 "병원명 진료과", 문자열이면 그대로
-    const rh = p.regular_hospital;
-    if (rh && typeof rh === 'object') {
-      document.getElementById('modal-hospital').value =
-        [rh.name, rh.department].filter(Boolean).join(' ');
-    } else {
-      document.getElementById('modal-hospital').value = rh || '';
-    }
-
-    btn.textContent = '연동 완료 ✓';
-    btn.style.background = '#16a34a';
-    sub.textContent = `${p.name || '프로파일'} 님의 정보가 입력되었습니다`;
-    sub.style.color = '#15803d';
-
-    // 3초 후 버튼 원상복귀
-    setTimeout(() => {
-      btn.textContent = '연동하기';
-      btn.style.background = '#7F77DD';
-    }, 3000);
-
-  } catch (e) {
-    btn.textContent = '실패 — 재시도';
-    btn.style.background = '#dc2626';
-    sub.textContent = e.message;
-    sub.style.color = '#dc2626';
-    setTimeout(() => {
-      btn.textContent = '연동하기';
-      btn.style.background = '#7F77DD';
-      sub.textContent = '저장된 JSON에서 자동으로 불러옵니다';
-      sub.style.color = '#7c3aed';
-    }, 3000);
-  }
-}
 
 // [version, total_codewords, data_codewords, ec_codewords_per_block, blocks_group1, blocks_group2]
 const VER_TABLE=[
