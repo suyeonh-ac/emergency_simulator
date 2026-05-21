@@ -1,0 +1,12 @@
+{
+  "name": "김순자",
+  "age": 72,
+  "gender": "여",
+  "conditions": ["고혈압", "제2형 당뇨", "만성신장질환"],
+  "medications": ["암로디핀 5mg", "메트포르민 500mg", "아스피린 100mg"],
+  "allergies": ["이부프로펜", "조영제"],
+  "regular_hospital": {
+    "name": "서울대학교병원",
+    "department": "신장내과"
+  }
+}

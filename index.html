@@ -2395,6 +2395,60 @@ const rsEncode=(data,ec)=>{
 };
 
 // ── Version / 정보 테이블 (ECC M) ────────
+// ── Twin 프로파일 JSON 연동 ───────────────────────────────────
+async function syncFromJSON() {
+  const btn = document.getElementById('sync-btn');
+  const sub = document.getElementById('sync-bar-sub');
+  btn.textContent = '불러오는 중...';
+  btn.style.background = '#a78bfa';
+
+  try {
+    const res = await fetch('kim_soonja_profile.json');
+    if (!res.ok) throw new Error('파일을 찾을 수 없습니다');
+    const p = await res.json();
+
+    // 폼 자동 입력
+    document.getElementById('modal-username').value   = p.name || '';
+    document.getElementById('modal-age').value        = p.age  || '';
+    document.getElementById('modal-gender').value     = p.gender || '';
+    document.getElementById('modal-conditions').value = (p.conditions  || []).join(', ');
+    document.getElementById('modal-medications').value= (p.medications || []).join(', ');
+    document.getElementById('modal-allergies').value  = (p.allergies   || []).join(', ');
+
+    // regular_hospital: 객체면 "병원명 진료과", 문자열이면 그대로
+    const rh = p.regular_hospital;
+    if (rh && typeof rh === 'object') {
+      document.getElementById('modal-hospital').value =
+        [rh.name, rh.department].filter(Boolean).join(' ');
+    } else {
+      document.getElementById('modal-hospital').value = rh || '';
+    }
+
+    btn.textContent = '연동 완료 ✓';
+    btn.style.background = '#16a34a';
+    sub.textContent = `${p.name || '프로파일'} 님의 정보가 입력되었습니다`;
+    sub.style.color = '#15803d';
+
+    // 3초 후 버튼 원상복귀
+    setTimeout(() => {
+      btn.textContent = '연동하기';
+      btn.style.background = '#7F77DD';
+    }, 3000);
+
+  } catch (e) {
+    btn.textContent = '실패 — 재시도';
+    btn.style.background = '#dc2626';
+    sub.textContent = e.message;
+    sub.style.color = '#dc2626';
+    setTimeout(() => {
+      btn.textContent = '연동하기';
+      btn.style.background = '#7F77DD';
+      sub.textContent = '저장된 JSON에서 자동으로 불러옵니다';
+      sub.style.color = '#7c3aed';
+    }, 3000);
+  }
+}
+
 // [version, total_codewords, data_codewords, ec_codewords_per_block, blocks_group1, blocks_group2]
 const VER_TABLE=[
   null,
@@ -2755,7 +2809,25 @@ requestAnimationFrame(updateAppHeight);
     box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   ">
     <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 4px;" id="modal-title">건강 프로파일 입력</h3>
-    <p style="font-size: 12px; color: #888; margin-bottom: 16px;">한 번 저장하면 이후 자동으로 적용됩니다.</p>
+    <p style="font-size: 12px; color: #888; margin-bottom: 12px;">한 번 저장하면 이후 자동으로 적용됩니다.</p>
+
+    <!-- 연동하기 버튼 -->
+    <div id="sync-bar" style="
+      display: flex; align-items: center; justify-content: space-between;
+      background: #f5f3ff; border: 1px dashed #a78bfa;
+      border-radius: 10px; padding: 9px 14px; margin-bottom: 14px;
+    ">
+      <div>
+        <div style="font-size: 12px; font-weight: 600; color: #5b21b6;">Twin 프로파일 연동</div>
+        <div style="font-size: 11px; color: #7c3aed;" id="sync-bar-sub">저장된 JSON에서 자동으로 불러옵니다</div>
+      </div>
+      <button id="sync-btn" onclick="syncFromJSON()" style="
+        padding: 6px 14px; border: none; border-radius: 8px;
+        background: #7F77DD; color: #fff;
+        font-size: 12px; font-weight: 600; cursor: pointer;
+        white-space: nowrap; transition: background 0.2s;
+      ">연동하기</button>
+    </div>
 
     <div style="margin-bottom: 10px;">
       <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">이름 (구분용)</label>
