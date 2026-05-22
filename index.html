@@ -778,7 +778,7 @@ textarea{resize:none;height:60px;line-height:1.5;}
         <div class="chat-badges">
           <span class="badge badge-gpt">GPT-4o-mini</span>
           <span class="badge badge-live">실시간</span>
-          <span class="badge badge-voice">🎤 CLOVA</span>
+          <span class="badge badge-voice">🎤 Whisper</span>
         </div>
       </div>
       <button class="btn-reset-chat" onclick="resetChat()" title="대화 초기화">↺ 초기화</button>
@@ -1146,7 +1146,7 @@ async function sendToSTT(blob){
     appendBubble(`🎤 인식: "${text}"`,'voice-info');
     setTimeout(()=>sendChat(),300);
   }catch(e){
-    appendBubble('⚠️ CLOVA STT 연결 실패. 브라우저 음성인식으로 전환합니다.','voice-info');
+    appendBubble('⚠️ Whisper STT 연결 실패. 브라우저 음성인식으로 전환합니다.','voice-info');
     startWebSpeech();
   }
 }
