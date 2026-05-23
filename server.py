@@ -570,33 +570,66 @@ def _nemc_get(endpoint: str, params: dict, timeout: int = 7) -> list:
 
 def fetch_nearby_hospitals(lat: float, lng: float) -> list:
     """
-    getEmrrmRltmUsefulSckbdInfoInqire (실시간 가용병상) API로
-    위치+병상 정보를 한번에 조회합니다.
-    이 API는 전국 응급실 데이터를 반환하므로 좌표 기반 필터링은
-    결과 수신 후 거리 계산으로 처리합니다.
+    1단계: getEgytListInfoInqire로 위치 정보 조회 (좌표 포함)
+    2단계: getEmrrmRltmUsefulSckbdInfoInqire로 실시간 병상 조회
+    3단계: hpid로 두 결과 합치기
     """
-    items = _nemc_get('getEmrrmRltmUsefulSckbdInfoInqire', {
-        'STAGE1': '',
-        'STAGE2': '',
-        'numOfRows': 200,
+    import math
+
+    # 1단계: 위치 정보 조회 (전국 응급의료기관 목록 - 좌표 포함)
+    loc_items = _nemc_get('getEgytListInfoInqire', {
+        'numOfRows': 500,
     })
-    result = []
-    for item in items:
-        hlat = _safe_float(item.get('wgs84Lat') or item.get('lat', 0))
-        hlng = _safe_float(item.get('wgs84Lon') or item.get('lon', 0))
+
+    if not loc_items:
+        print("[NEMC] 위치 목록 조회 실패")
+        return []
+
+    print(f"[NEMC] 위치 목록: {len(loc_items)}개")
+    if loc_items:
+        first = loc_items[0]
+        print(f"[NEMC DEBUG] 위치 항목 키: {list(first.keys())[:15]}")
+        print(f"[NEMC DEBUG] 좌표 샘플: wgs84Lat={first.get('wgs84Lat')}, wgs84Lon={first.get('wgs84Lon')}")
+
+    # 30km 이내 병원만 필터링
+    nearby = []
+    for item in loc_items:
+        hlat = _safe_float(item.get('wgs84Lat') or item.get('wgs84lat', 0))
+        hlng = _safe_float(item.get('wgs84Lon') or item.get('wgs84lon', 0))
         if not (hlat and hlng):
             continue
-        # 거리 계산 (haversine 간이 버전)
-        import math
         dlat = math.radians(hlat - lat)
         dlng = math.radians(hlng - lng)
         a = math.sin(dlat/2)**2 + math.cos(math.radians(lat)) * math.cos(math.radians(hlat)) * math.sin(dlng/2)**2
         dist_km = 6371 * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-
-        if dist_km > 30:  # 30km 이내만
+        if dist_km > 30:
             continue
+        nearby.append({
+            'hpid':     item.get('hpid', ''),
+            'name':     item.get('dutyName', ''),
+            'address':  item.get('dutyAddr', ''),
+            'phone':    item.get('dutyTel3', '') or item.get('dutyTel1', ''),
+            'lat':      hlat,
+            'lng':      hlng,
+            'er_type':  item.get('dutyDivNam', ''),
+            'dist_km':  round(dist_km, 2),
+        })
 
+    print(f"[NEMC] 30km 이내 응급실: {len(nearby)}개")
+    if not nearby:
+        return []
+
+    # 2단계: 실시간 병상 조회
+    bed_items = _nemc_get('getEmrrmRltmUsefulSckbdInfoInqire', {
+        'STAGE1': '',
+        'STAGE2': '',
+        'numOfRows': 500,
+    })
+    bed_map = {}
+    for item in bed_items:
         hpid = item.get('hpid', '')
+        if not hpid:
+            continue
         specialties = [
             name for field, name in NEMC_SPECIALTY_FIELDS.items()
             if _safe_int(item.get(field, 0)) > 0
@@ -605,32 +638,35 @@ def fetch_nearby_hospitals(lat: float, lng: float) -> list:
             name for field, name in NEMC_SERIOUS_FIELDS.items()
             if str(item.get(field, '')).upper() in ('Y', '1')
         ]
-        result.append({
-            'hpid':           hpid,
-            'name':           item.get('dutyName', ''),
-            'address':        item.get('dutyAddr', ''),
-            'phone':          item.get('dutyTel3', '') or item.get('dutyTel1', ''),
-            'lat':            hlat,
-            'lng':            hlng,
-            'er_type':        item.get('dutyDivNam', ''),
+        bed_map[hpid] = {
             'availBeds':      _safe_int(item.get('hvec', 0)),
-            'er_available':   _safe_int(item.get('hvec', 0)),
             'surgeryBeds':    _safe_int(item.get('hvoc', 0)),
-            'icuBeds':        _safe_int(item.get('hvcc', 0)),
+            'icuBeds':        _safe_int(item.get('hvncc', 0)),
             'specialties':    specialties,
             'serious_accept': serious,
-            'realtime':       True,
             'updated_at':     item.get('hvidate', ''),
-            'dist_km':        round(dist_km, 2),
+        }
+
+    # 3단계: hpid로 합치기
+    result = []
+    for h in nearby:
+        hpid = h['hpid']
+        bed  = bed_map.get(hpid, {})
+        result.append({
+            **h,
+            'availBeds':      bed.get('availBeds', 0),
+            'er_available':   bed.get('availBeds', 0),
+            'surgeryBeds':    bed.get('surgeryBeds', 0),
+            'icuBeds':        bed.get('icuBeds', 0),
+            'specialties':    bed.get('specialties', []),
+            'serious_accept': bed.get('serious_accept', []),
+            'realtime':       hpid in bed_map,
+            'updated_at':     bed.get('updated_at', ''),
         })
 
-    # 거리순 정렬
     result.sort(key=lambda x: x['dist_km'])
-    # 디버그: 첫 번째 항목 키 확인 (배포 후 확인되면 제거)
-    if items:
-        print(f"[NEMC DEBUG] 첫 항목 키 목록: {list(items[0].keys())}")
-        print(f"[NEMC DEBUG] 첫 항목 샘플: wgs84Lat={items[0].get('wgs84Lat')}, wgs84Lon={items[0].get('wgs84Lon')}, lat={items[0].get('lat')}, lon={items[0].get('lon')}")
-    print(f"[NEMC] 실시간 병상 조회: 전체 {len(items)}개 → 30km 이내 {len(result)}개")
+    realtime_cnt = sum(1 for h in result if h['realtime'])
+    print(f"[NEMC] 통합 완료: {len(result)}개, 실시간 매칭 {realtime_cnt}개")
     return result
 
 
@@ -668,16 +704,7 @@ def fetch_emergency_hospitals(lat: float, lng: float, radius_km: int = 10) -> li
     if not NEMC_API_KEY:
         print("[NEMC] API key 미설정 → 카카오 fallback 사용")
         return []
-
-    # fetch_nearby_hospitals가 이미 실시간 병상 데이터 포함
-    hospitals = fetch_nearby_hospitals(lat, lng)
-    if not hospitals:
-        print("[NEMC] 위치 조회 결과 없음")
-        return []
-
-    realtime_cnt = sum(1 for h in hospitals if h.get('realtime'))
-    print(f"[NEMC] 통합 완료: {len(hospitals)}개, 실시간 {realtime_cnt}개")
-    return hospitals
+    return fetch_nearby_hospitals(lat, lng)
 
 
 @app.route("/hospitals", methods=["GET"])
