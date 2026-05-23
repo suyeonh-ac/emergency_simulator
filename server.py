@@ -626,6 +626,10 @@ def fetch_nearby_hospitals(lat: float, lng: float) -> list:
 
     # 거리순 정렬
     result.sort(key=lambda x: x['dist_km'])
+    # 디버그: 첫 번째 항목 키 확인 (배포 후 확인되면 제거)
+    if items:
+        print(f"[NEMC DEBUG] 첫 항목 키 목록: {list(items[0].keys())}")
+        print(f"[NEMC DEBUG] 첫 항목 샘플: wgs84Lat={items[0].get('wgs84Lat')}, wgs84Lon={items[0].get('wgs84Lon')}, lat={items[0].get('lat')}, lon={items[0].get('lon')}")
     print(f"[NEMC] 실시간 병상 조회: 전체 {len(items)}개 → 30km 이내 {len(result)}개")
     return result
 
