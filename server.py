@@ -231,13 +231,14 @@ SYSTEM_TEMPLATE = """당신은 KTAS(한국형 응급환자 분류도구, 2021) �
 1. 활력징후 1차 고려사항 → 그 밖의 1차 고려사항 → 증상별 2차 고려사항 순서로 적용
 2. 여러 조건 해당 시 가장 높은 중증도(낮은 숫자) 선택
 
-## 행동 지침
-- 현재 정보로 KTAS 레벨을 자신 있게 결정할 수 있으면 → 즉시 분류
-- 레벨 간 경계가 애매하거나 분류에 결정적인 정보가 부족하면 → 추가 질문 1개
-  - 질문은 반드시 KTAS 분류에 직접 영향을 주는 것으로 한정
-    (통증 강도 0~10, 호흡곤란 정도, 의식 상태, 발병 시점, 동반 증상 유무 등)
-  - 이미 답변을 받은 내용은 다시 묻지 말 것
+## 행동 지침 (긴급도에 따른 질문 제한)
+- 레벨 1~2 의심(심정지, 무의식, 쇼크, 중증 호흡곤란, 패닉 발화): 즉시 분류. 질문 금지.
+- 레벨 3 의심: 분류에 결정적인 정보 1가지만 추가 질문 가능 (최대 {max_questions_l3}회)
+- 레벨 4~5 의심: 분류 애매 시 최대 {max_questions}회 추가 질문 가능
 - 이미 {max_questions}번 질문했으면 → 보수적으로(더 높은 중증도로) 즉시 분류
+- 질문은 반드시 KTAS 분류에 직접 영향을 주는 것으로 한정
+  (통증 강도 0~10, 호흡곤란 정도, 의식 상태, 발병 시점, 동반 증상 유무 등)
+- 이미 답변을 받은 내용은 다시 묻지 말 것
 
 ## 관련 KTAS 분류 기준
 {ktas_context}
@@ -255,7 +256,20 @@ SYSTEM_TEMPLATE = """당신은 KTAS(한국형 응급환자 분류도구, 2021) �
 {{"type": "question", "question": "<질문 내용을 환자에게 직접 묻는 말투로>"}}
 
 분류 가능한 경우:
-{{"type": "classification", "level": <1~5>, "reason": "<분류 근거 한 문장>", "chief_complaint": "<해당 주호소명>", "specialty": "<필요 진료과>", "hospital_priority": "<특수과 기준 추천 이유 — 30자 이내>", "specialty_match": <true/false — 주변 병원 중 특수과 매칭 병원 존재 여부>}}
+{{
+  "type": "classification",
+  "level": <1~5>,
+  "reason": "<분류 근거: 1차 고려사항 적용 결과 → 2차 고려사항 적용 결과 → 최종 레벨 판정 순으로 한국어 2~3문장>",
+  "reason_steps": [
+    "<1단계: 적용한 활력징후/1차 기준과 결과>",
+    "<2단계: 적용한 증상별 2차 기준과 결과>",
+    "<3단계: 최종 판정 이유>"
+  ],
+  "chief_complaint": "<해당 주호소명>",
+  "specialty": "<필요 진료과>",
+  "hospital_priority": "<특수과 기준 추천 이유 — 30자 이내>",
+  "specialty_match": <true/false>
+}}
 """
 
 
@@ -342,8 +356,13 @@ def classify_with_gpt(messages: list, ktas_context: str, question_count: int,
     멀티턴 대화 히스토리 + KTAS 컨텍스트 (+선택적 Twin/주변 병원 컨텍스트)를
     바탕으로 GPT가 분류 또는 추가 질문을 반환합니다.
     """
+    # KTAS 레벨별 질문 횟수 제한 계산
+    max_q_l3 = MAX_QUESTIONS_BY_LEVEL.get(3, 1)
+    max_q    = MAX_QUESTIONS_BY_LEVEL.get(5, 2)
+
     system_prompt = SYSTEM_TEMPLATE.format(
-        max_questions=MAX_QUESTIONS,
+        max_questions=max_q,
+        max_questions_l3=max_q_l3,
         ktas_context=ktas_context,
     )
 
@@ -497,6 +516,7 @@ def classify():
         result.setdefault("specialty", "응급의학과")
         result.setdefault("hospital_priority", "")
         result.setdefault("specialty_match", False)
+        result.setdefault("reason_steps", [])  # 단계별 분류 근거
 
     return jsonify(result)
 
