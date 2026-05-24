@@ -1,4 +1,4 @@
-# 5월 21일 민성 수정 테스트
+# 5월 25일 수연
 """
 KTAS 중증도 분류 챗봇 - 백엔드 서버 (멀티턴 대화 버전)
 실행: python server.py
@@ -65,8 +65,9 @@ CLOVA_CLIENT_SECRET = os.getenv("CLOVA_CLIENT_SECRET")
 # 국립중앙의료원 응급의료포털 (NEMC) Open API 키
 NEMC_API_KEY        = os.environ.get("NEMC_API_KEY", "")
 
-# 추가 질문 최대 횟수
-MAX_QUESTIONS = 3
+# KTAS 레벨별 최대 추가 질문 횟수
+MAX_QUESTIONS_BY_LEVEL = {1:0, 2:0, 3:1, 4:2, 5:2}
+MAX_QUESTIONS = 2
 
 # KTAS 데이터 로드
 with open("ktas_data.json", encoding="utf-8") as f:
