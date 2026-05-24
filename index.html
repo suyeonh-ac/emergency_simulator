@@ -1698,6 +1698,100 @@ ${alerts.map(a => `• ${a}`).join('<br>')}<br><br>
   }
 }
 
+// ══════════════════════════════════════════
+//  Health Connect 연동 (Android 앱 전용)
+// ══════════════════════════════════════════
+async function loadHealthConnect() {
+  try {
+    // Capacitor 환경인지 확인 (웹 브라우저에서는 동작 안 함)
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) {
+      console.log('[HealthConnect] 웹 환경 - Health Connect 건너뜀');
+      return;
+    }
+
+    const { HealthConnect } = await import('capacitor-health-connect');
+
+    // 권한 요청
+    const granted = await HealthConnect.requestHealthPermissions({
+      read: [
+        'HeartRate',
+        'OxygenSaturation',
+        'BloodPressure',
+        'BodyTemperature',
+        'BloodGlucose',
+        'Steps',
+      ],
+    });
+
+    if (!granted) {
+      console.warn('[HealthConnect] 권한 거부됨');
+      return;
+    }
+
+    // 최근 24시간 데이터 조회
+    const now = new Date();
+    const yesterday = new Date(now - 24 * 60 * 60 * 1000);
+    const timeSpec = {
+      startTime: yesterday.toISOString(),
+      endTime:   now.toISOString(),
+    };
+
+    // 심박수
+    try {
+      const hrData = await HealthConnect.readRecords({ type: 'HeartRate', timeRangeFilter: timeSpec });
+      const latest = hrData.records?.at(-1);
+      if (latest?.samples?.[0]?.beatsPerMinute) {
+        currentVitals.hr = latest.samples[0].beatsPerMinute;
+      }
+    } catch(e) { console.warn('[HealthConnect] 심박수 오류:', e.message); }
+
+    // 혈중산소
+    try {
+      const spo2Data = await HealthConnect.readRecords({ type: 'OxygenSaturation', timeRangeFilter: timeSpec });
+      const latest = spo2Data.records?.at(-1);
+      if (latest?.percentage?.value) {
+        currentVitals.spo2 = Math.round(latest.percentage.value);
+      }
+    } catch(e) { console.warn('[HealthConnect] 혈중산소 오류:', e.message); }
+
+    // 혈압
+    try {
+      const bpData = await HealthConnect.readRecords({ type: 'BloodPressure', timeRangeFilter: timeSpec });
+      const latest = bpData.records?.at(-1);
+      if (latest?.systolic?.inMillimetersOfMercury) {
+        currentVitals.bp_sys = Math.round(latest.systolic.inMillimetersOfMercury);
+        currentVitals.bp_dia = Math.round(latest.diastolic.inMillimetersOfMercury);
+      }
+    } catch(e) { console.warn('[HealthConnect] 혈압 오류:', e.message); }
+
+    // 체온
+    try {
+      const tempData = await HealthConnect.readRecords({ type: 'BodyTemperature', timeRangeFilter: timeSpec });
+      const latest = tempData.records?.at(-1);
+      if (latest?.temperature?.inCelsius) {
+        currentVitals.temp = Math.round(latest.temperature.inCelsius * 10) / 10;
+      }
+    } catch(e) { console.warn('[HealthConnect] 체온 오류:', e.message); }
+
+    currentVitals.source = 'health_connect';
+    updateVitalsUI();
+    checkVitalAlerts(currentVitals.hr, currentVitals.spo2, currentVitals.bp_sys);
+    console.log('[HealthConnect] 바이탈 로드 완료:', currentVitals);
+
+    // 소스 배지 업데이트
+    const badge = document.getElementById('vitals-source-badge');
+    if (badge) badge.textContent = '(Health Connect 연동)';
+
+  } catch(e) {
+    console.warn('[HealthConnect] 연동 실패:', e.message);
+  }
+}
+
+// 앱 시작 시 Health Connect 자동 로드
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(loadHealthConnect, 2000); // 2초 후 로드 (UI 초기화 후)
+});
+
 // buildTwinPayload에 currentVitals 반영 (STEP 2 버전 덮어쓰기)
 function buildTwinPayload() {
   const profile = getActiveProfile();
