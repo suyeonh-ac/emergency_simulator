@@ -1,0 +1,2896 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>응급실 추천 시스템</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iI2UzMmQyZCIvPgogIDxwYXRoIGQ9Ik0xNiA2QzEyLjEzIDYgOSA5LjEzIDkgMTNjMCA1LjI1IDcgMTMgNyAxM3M3LTcuNzUgNy0xM2MwLTMuODctMy4xMy03LTctN3ptMCA5LjVjLTEuMzggMC0yLjUtMS4xMi0yLjUtMi41czEuMTItMi41IDIuNS0yLjUgMi41IDEuMTIgMi41IDIuNS0xLjEyIDIuNS0yLjUgMi41eiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+">
+<!-- Pretendard 폰트 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- QRCode.js는 openQrModal에서 동적 로드 -->
+<style>
+:root {
+  --red:#e32d2d; --red-light:#fff0f0; --red-dark:#b71c1c;
+  --bg:#f5f6f8; --surface:#fff;
+  --border:#e4e4e4; --text:#1a1a1a; --text-sub:#555; --text-hint:#999;
+  --green:#16a34a; --amber:#d97706;
+  --radius:14px; --shadow:0 4px 20px rgba(0,0,0,.08);
+  /* ── 기본 글씨 크기 (기존 large 수준으로 상향) ── */
+  --fs-base:16px;
+  --fs-sm:14px;
+  --fs-xs:12px;
+  --fs-lg:18px;
+  --fs-xl:22px;
+  --fs-2xl:28px;
+  /* 챗봇 라벨 - 크기 변동 없이 고정 */
+  --fs-chat-label:11px;
+}
+
+/* ── 큰 글씨 모드 (더 크게) ── */
+body.large-text {
+  --fs-base:20px;
+  --fs-sm:18px;
+  --fs-xs:15px;
+  --fs-lg:23px;
+  --fs-xl:27px;
+  --fs-2xl:34px;
+  /* 챗봇 라벨은 large-text에서도 고정 */
+  --fs-chat-label:11px;
+}
+
+/* ── 고대비 모드 ── */
+body.high-contrast {
+  --bg:#000; --surface:#111; --border:#555;
+  --text:#fff; --text-sub:#ddd; --text-hint:#bbb;
+  --red:#ff4444; --red-light:#2a0000; --red-dark:#cc0000;
+  --green:#00e676; --amber:#ffca28;
+  --shadow:0 4px 20px rgba(255,255,255,.05);
+}
+body.high-contrast header,
+body.high-contrast .chat-panel,
+body.high-contrast .card,
+body.high-contrast .hosp-card,
+body.high-contrast .ktas-result,
+body.high-contrast .bubble.ai{
+  background:var(--surface);
+}
+body.high-contrast .bubble.sys{background:#001a3a;color:#90caf9;border-color:#1565c0;}
+body.high-contrast input,
+body.high-contrast textarea{background:#1a1a1a;color:#fff;border-color:#555;}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Pretendard Variable',Pretendard,sans-serif;
+  background:var(--bg);color:var(--text);
+  font-size:var(--fs-base);line-height:1.65;overflow:hidden;
+  transition:background .2s,color .2s;
+}
+
+/* ── 헤더 ── */
+header{
+  height:54px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;position:fixed;top:0;left:0;right:0;z-index:300;
+  box-shadow:0 1px 8px rgba(0,0,0,.06);
+}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:30px;height:30px;background:var(--red);border-radius:8px;display:flex;align-items:center;justify-content:center;}
+.logo-icon svg{width:16px;height:16px;fill:#fff;}
+.logo-title{font-size:var(--fs-lg);font-weight:700;}
+.logo-title span{color:var(--red);}
+.hdr-right{display:flex;align-items:center;gap:10px;}
+.live-chip{display:flex;align-items:center;gap:6px;font-size:var(--fs-xs);color:var(--text-sub);}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+#clock{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-xs);color:var(--text-hint);}
+
+/* ── 접근성 플로팅 패널 (우측 상단 고정) ── */
+.a11y-btns{display:none;} /* 헤더에서 숨김 */
+.a11y-divider{display:none;}
+.a11y-panel{
+  position:fixed;top:190px;right:0;z-index:250;
+  display:flex;flex-direction:column;
+}
+.a11y-btn{
+  width:70px;height:70px;
+  border:none;
+  border-left:3px solid var(--border);
+  background:var(--surface);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  cursor:pointer;font-family:inherit;color:var(--text-sub);
+  transition:all .15s;
+  box-shadow:-4px 2px 14px rgba(0,0,0,.12);
+}
+.a11y-btn:first-child{
+  border-radius:14px 0 0 0;
+  border-top:3px solid var(--border);
+}
+.a11y-btn:last-child{
+  border-radius:0 0 0 14px;
+  border-bottom:3px solid var(--border);
+}
+.a11y-btn:hover{background:var(--red-light);color:var(--red);border-left-color:var(--red);}
+.a11y-btn.active{background:var(--red);color:#fff;border-color:var(--red);}
+.a11y-btn-icon{font-size:26px;font-weight:800;line-height:1;}
+.a11y-btn-label{font-size:10px;font-weight:700;letter-spacing:-.01em;text-align:center;line-height:1.2;}
+
+/* ── 전체 레이아웃: 좌측 챗봇 고정 + 우측 스크롤 ── */
+.app{display:flex;height:calc(100vh - 152px);padding-top:0;min-height:0;}
+
+/* ── 좌측 챗봇 패널 ── */
+.chat-panel{
+  width:360px;flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;height:100%;overflow:hidden;
+}
+.chat-panel-header{
+  padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+}
+.chat-panel-header-left{display:flex;flex-direction:column;gap:6px;}
+.chat-panel-title{font-size:var(--fs-chat-label);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-hint);}
+.chat-badges{display:flex;gap:5px;}
+.btn-reset-chat{
+  background:none;border:2px solid var(--border);border-radius:8px;
+  padding:5px 10px;font-size:var(--fs-chat-label);color:var(--text-hint);font-family:inherit;
+  cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;margin-top:2px;
+}
+.btn-reset-chat:hover{border-color:var(--red);color:var(--red);background:var(--red-light);}
+.badge{font-size:var(--fs-chat-label);font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.04em;}
+.badge-gpt{background:#e0f2fe;color:#0369a1;border:2px solid #7dd3fc;}
+.badge-live{background:#eff6ff;color:#1d4ed8;border:2px solid #bfdbfe;}
+.badge-voice{background:#fdf4ff;color:#7e22ce;border:2px solid #d8b4fe;}
+
+.chat-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+.chat-msgs::-webkit-scrollbar{width:3px;}
+.chat-msgs::-webkit-scrollbar-thumb{background:var(--border);}
+
+.bubble{max-width:88%;padding:10px 14px;border-radius:14px;font-size:var(--fs-sm);line-height:1.65;}
+.bubble.ai{background:var(--bg);border:2px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px;color:var(--text-sub);}
+.bubble.user{background:var(--red);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;}
+.bubble.sys{background:#eff6ff;border:2px solid #bfdbfe;align-self:flex-start;border-bottom-left-radius:4px;color:#1e3a8a;font-size:var(--fs-sm);}
+.bubble.crit{background:#fef2f2;border:2px solid #fca5a5;align-self:flex-start;color:#991b1b;font-weight:600;font-size:var(--fs-sm);}
+.bubble.voice-info{background:#fdf4ff;border:2px solid #d8b4fe;align-self:flex-start;color:#581c87;font-size:var(--fs-sm);}
+
+.typing-wrap{display:none;align-self:flex-start;padding:9px 13px;background:var(--bg);border:2px solid var(--border);border-radius:14px;border-bottom-left-radius:4px;}
+.typing-dots{display:flex;gap:4px;}
+.typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--text-hint);animation:tdot .9s infinite;}
+.typing-dots span:nth-child(2){animation-delay:.15s;}
+.typing-dots span:nth-child(3){animation-delay:.3s;}
+@keyframes tdot{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+
+.chat-input-wrap{
+  border-top:1px solid var(--border);padding:10px 12px;
+  display:flex;gap:6px;align-items:center;flex-shrink:0;position:relative;
+}
+.voice-status{
+  display:none;position:absolute;bottom:58px;left:50%;transform:translateX(-50%);
+  background:#1a1a1a;color:#fff;border-radius:8px;padding:5px 12px;
+  font-size:var(--fs-xs);white-space:nowrap;z-index:10;
+}
+.voice-status.show{display:block;}
+.voice-timer{color:#fca5a5;font-family:'IBM Plex Mono',monospace;margin-left:4px;}
+.chat-input{
+  flex:1;border:2px solid var(--border);border-radius:20px;
+  padding:8px 14px;font-size:var(--fs-sm);font-family:inherit;outline:none;
+  transition:border-color .15s;background:var(--bg);
+}
+.chat-input:focus{border-color:var(--red);background:var(--surface);}
+.btn-icon{
+  width:34px;height:34px;border:none;border-radius:50%;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:background .15s,transform .1s;
+}
+.btn-icon:active{transform:scale(.93);}
+.btn-send{background:var(--red);}
+.btn-send:hover{background:var(--red-dark);}
+.btn-send svg{fill:#fff;width:14px;height:14px;}
+.btn-voice{background:#7e22ce;}
+.btn-voice:hover{background:#6b21a8;}
+.btn-voice.recording{background:#dc2626;animation:vpulse 1s infinite;}
+.btn-voice svg{fill:#fff;width:14px;height:14px;}
+@keyframes vpulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.4)}50%{box-shadow:0 0 0 8px rgba(220,38,38,0)}}
+
+/* ── 우측 메인 스크롤 영역 ── */
+.main-scroll{flex:1;overflow-y:auto;padding:32px 28px 40px;}
+.main-scroll::-webkit-scrollbar{width:5px;}
+.main-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* ── 히어로 섹션 ── */
+.hero{text-align:center;margin-bottom:32px;}
+.hero h1{font-size:var(--fs-2xl);font-weight:700;margin-bottom:6px;}
+.hero p{font-size:var(--fs-base);color:var(--text-sub);}
+
+/* ── 119 버튼 ── */
+.sos-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:36px;gap:10px;position:relative;}
+
+/* 시계 게이지 컨테이너 */
+.sos-clock-wrap{
+  position:relative;width:150px;height:150px;
+  display:flex;align-items:center;justify-content:center;
+}
+/* SVG 게이지 */
+.sos-gauge{
+  position:absolute;inset:0;width:100%;height:100%;
+  transform:rotate(-90deg);pointer-events:none;
+}
+.sos-gauge-bg{fill:none;stroke:rgba(255,255,255,.15);stroke-width:6;}
+.sos-gauge-fill{
+  fill:none;stroke:#fff;stroke-width:6;stroke-linecap:round;
+  stroke-dasharray:408;stroke-dashoffset:408;
+  transition:stroke-dashoffset .05s linear;
+}
+.sos-gauge-tick{stroke:rgba(255,255,255,.25);stroke-width:1.5;}
+
+.sos-btn{
+  width:130px;height:130px;border-radius:50%;
+  background:var(--red);border:none;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  box-shadow:0 6px 28px rgba(227,45,45,.45);
+  transition:transform .1s,box-shadow .15s,background .2s;
+  position:relative;z-index:1;
+  user-select:none;-webkit-user-select:none;
+}
+.sos-btn:hover{transform:scale(1.04);box-shadow:0 8px 36px rgba(227,45,45,.55);}
+.sos-btn.pressing{background:#9a1515;}
+.sos-btn svg.phone-icon{fill:#fff;width:32px;height:32px;}
+.sos-btn-label{color:#fff;font-size:var(--fs-lg);font-weight:700;letter-spacing:.05em;}
+
+/* 카운트 숫자 (버튼 위에 표시) */
+.sos-countdown-num{
+  position:absolute;top:-8px;right:-4px;
+  width:34px;height:34px;border-radius:50%;
+  background:#fff;color:var(--red);
+  font-size:18px;font-weight:800;
+  display:none;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);
+  z-index:2;font-family:'IBM Plex Mono',monospace;
+}
+.sos-btn.pressing .sos-countdown-num{display:flex;}
+
+.sos-hint{font-size:var(--fs-xs);color:var(--text-hint);}
+
+/* sos 전체화면 오버레이 */
+.sos-overlay{
+  display:none;position:fixed;inset:0;background:rgba(183,28,28,.97);
+  z-index:500;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+.sos-overlay.show{display:flex;}
+.sos-count{font-size:96px;font-weight:700;color:#fff;line-height:1;font-family:'IBM Plex Mono',monospace;}
+.sos-count-txt{font-size:var(--fs-xl);color:rgba(255,255,255,.85);}
+.sos-cancel{
+  margin-top:32px;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.7);
+  border-radius:99px;padding:12px 36px;color:#fff;font-size:var(--fs-base);
+  cursor:pointer;font-family:inherit;transition:background .15s;
+}
+.sos-cancel:hover{background:rgba(255,255,255,.25);}
+
+/* ── 검색 카드 ── */
+.card{background:var(--surface);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);margin-bottom:24px;}
+.card-title{font-size:var(--fs-sm);font-weight:700;color:var(--text-sub);margin-bottom:16px;display:flex;align-items:center;gap:7px;}
+.card-title svg{width:15px;height:15px;fill:var(--red);}
+
+.form-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.field label{font-size:var(--fs-xs);font-weight:500;color:var(--text-sub);margin-bottom:5px;display:block;}
+.field label span{color:var(--red);}
+input[type=number],input[type=text],textarea{
+  width:100%;border:2px solid var(--border);border-radius:10px;
+  padding:9px 13px;font-family:inherit;font-size:var(--fs-sm);color:var(--text);
+  background:var(--bg);outline:none;transition:border-color .15s;
+}
+input:focus,textarea:focus{border-color:var(--red);background:var(--surface);}
+textarea{resize:none;height:60px;line-height:1.5;}
+
+/* 성별 버튼 */
+.gender-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.gender-btn{
+  border:2.5px solid var(--border);background:var(--bg);border-radius:10px;
+  padding:10px;font-family:inherit;font-size:var(--fs-sm);font-weight:600;cursor:pointer;
+  transition:all .15s;color:var(--text);
+}
+.gender-btn:hover{border-color:var(--red);color:var(--red);}
+.gender-btn.active{border-color:var(--red);background:var(--red-light);color:var(--red);font-weight:700;}
+
+/* 증상 태그 */
+.sym-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px;}
+.sym-tag{
+  border:2.5px solid var(--border);background:var(--bg);border-radius:20px;
+  padding:5px 13px;font-size:var(--fs-xs);font-weight:500;cursor:pointer;
+  transition:all .15s;user-select:none;color:var(--text);
+}
+.sym-tag:hover{border-color:var(--red);color:var(--red);}
+.sym-tag.active{background:var(--red-light);border-color:var(--red);color:var(--red);font-weight:700;}
+
+/* 검색 버튼 */
+.btn-search{
+  width:100%;background:var(--red);color:#fff;border:none;border-radius:10px;
+  padding:14px;font-family:inherit;font-size:var(--fs-lg);font-weight:700;
+  cursor:pointer;margin-top:16px;transition:background .15s,transform .1s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 14px rgba(227,45,45,.35);
+}
+.btn-search:hover{background:var(--red-dark);box-shadow:0 6px 20px rgba(227,45,45,.45);}
+.btn-search:active{transform:scale(.98);}
+.btn-search:disabled{background:#ccc;cursor:not-allowed;box-shadow:none;}
+.btn-search svg{fill:#fff;width:18px;height:18px;}
+
+/* ── QR 의료정보 모달 ── */
+.qr-modal{
+  display:none;position:fixed;inset:0;z-index:600;
+  background:rgba(0,0,0,.6);align-items:center;justify-content:center;
+}
+.qr-modal.show{display:flex;}
+.qr-box{
+  background:#fff;border-radius:20px;padding:28px 24px;max-width:360px;width:90%;
+  box-shadow:0 16px 60px rgba(0,0,0,.25);text-align:center;position:relative;
+}
+.qr-box h3{font-size:17px;font-weight:700;margin-bottom:4px;color:var(--text);}
+.qr-box p{font-size:12px;color:var(--text-hint);margin-bottom:16px;}
+#qrCanvas{margin:0 auto 16px;display:flex;justify-content:center;}
+.qr-info-list{text-align:left;font-size:12px;line-height:1.9;color:var(--text-sub);
+  background:var(--bg);border-radius:10px;padding:10px 14px;margin-bottom:16px;}
+.qr-close-btn{
+  background:var(--red);color:#fff;border:none;border-radius:10px;
+  padding:10px 28px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;
+}
+.qr-trigger-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  background:#fff3cd;border:1.5px solid #f59e0b;color:#92400e;
+  border-radius:10px;padding:7px 14px;font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:background .15s;
+}
+.qr-trigger-btn:hover{background:#fef3c7;}
+
+
+.ktas-result{
+  display:none;background:var(--surface);border-radius:var(--radius);
+  padding:18px 20px;box-shadow:var(--shadow);margin-bottom:24px;
+  border-left:4px solid var(--red);
+}
+.ktas-result.show{display:block;}
+.ktas-row{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+.ktas-badge{padding:3px 14px;border-radius:99px;font-size:var(--fs-sm);font-weight:700;}
+.ktas-reason{font-size:var(--fs-xs);color:var(--text-sub);line-height:1.6;}
+
+/* ── 지도 ── */
+.map-wrap{position:relative;border-radius:var(--radius);overflow:hidden;height:480px;box-shadow:var(--shadow);margin-bottom:24px;}
+#map{width:100%;height:100%;}
+.map-info{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.95);border-radius:10px;padding:8px 12px;font-size:var(--fs-xs);color:var(--text-sub);box-shadow:var(--shadow);}
+.map-info strong{display:block;font-size:var(--fs-xs);color:var(--text);margin-bottom:2px;}
+
+/* ── 응급실 리스트 ── */
+.section-title{font-size:var(--fs-xl);font-weight:700;margin-bottom:4px;}
+.section-sub{font-size:var(--fs-sm);color:var(--text-sub);margin-bottom:16px;}
+
+.hosp-list{display:flex;flex-direction:column;gap:12px;}
+.hosp-card{
+  background:var(--surface);border-radius:var(--radius);padding:18px 20px;
+  box-shadow:var(--shadow);display:flex;align-items:center;gap:16px;
+  cursor:pointer;transition:box-shadow .15s,transform .1s;border:2px solid transparent;
+}
+.hosp-card:hover{box-shadow:0 6px 24px rgba(0,0,0,.12);transform:translateY(-1px);}
+.hosp-card.rank-1{border-color:var(--red);}
+.hosp-rank{
+  width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:var(--fs-xl);font-weight:700;font-family:'IBM Plex Mono',monospace;flex-shrink:0;
+}
+.hosp-rank.r1{background:var(--red);color:#fff;}
+.hosp-rank.r2{background:#6b7280;color:#fff;}
+.hosp-rank.r3{background:#f97316;color:#fff;}
+.hosp-rank.r4{background:#8b5cf6;color:#fff;}
+.hosp-rank.r5{background:#06b6d4;color:#fff;}
+.hosp-info{flex:1;}
+.hosp-name{font-size:var(--fs-lg);font-weight:700;margin-bottom:6px;}
+.hosp-meta{display:flex;flex-wrap:wrap;gap:12px;}
+.hosp-meta-item{font-size:var(--fs-xs);color:var(--text-sub);display:flex;align-items:center;gap:4px;}
+.hosp-meta-item svg{width:12px;height:12px;flex-shrink:0;}
+.hosp-right{text-align:right;flex-shrink:0;}
+.bed-badge{
+  font-size:var(--fs-xs);font-weight:700;padding:3px 10px;border-radius:99px;
+  margin-bottom:6px;display:inline-block;
+}
+.bed-ok{background:#dcfce7;color:#15803d;}
+.bed-warn{background:#fef9c3;color:#854d0e;}
+.bed-crit{background:#fee2e2;color:#991b1b;}
+.score-bar{width:80px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:6px;}
+.score-fill{height:100%;background:var(--red);border-radius:2px;transition:width .6s ease;}
+
+/* ── 로딩 ── */
+.loading-overlay{
+  display:none;position:fixed;inset:0;background:rgba(245,246,248,.88);
+  z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:12px;
+}
+.loading-overlay.show{display:flex;}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-size:var(--fs-sm);color:var(--text-sub);font-weight:500;}
+
+/* ── 토스트 ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:10px;font-size:var(--fs-sm);z-index:999;opacity:0;pointer-events:none;transition:opacity .3s;}
+.toast.show{opacity:1;}
+
+/* ── 지도 현위치 버튼 ── */
+.map-myloc-btn{
+  position:absolute;bottom:14px;right:14px;z-index:10;
+  background:var(--surface);border:2.5px solid var(--red);
+  border-radius:10px;padding:9px 14px;
+  display:flex;align-items:center;gap:6px;
+  font-size:var(--fs-xs);font-weight:700;color:var(--red);font-family:inherit;
+  cursor:pointer;box-shadow:0 2px 10px rgba(227,45,45,.25);transition:all .15s;
+}
+.map-myloc-btn:hover{background:var(--red-light);box-shadow:0 4px 16px rgba(227,45,45,.35);}
+.map-myloc-btn svg{width:16px;height:16px;fill:var(--red);}
+
+/* ── 경로 모달 ── */
+.route-modal{
+  display:none;position:fixed;inset:0;z-index:400;
+  background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center;
+}
+.route-modal.show{display:flex;}
+.route-modal-box{
+  background:var(--surface);border-radius:20px 20px 0 0;
+  padding:22px 20px 36px;width:100%;max-width:620px;
+  box-shadow:0 -4px 24px rgba(0,0,0,.15);
+  animation:slideUp .25s ease;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.route-modal-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;}
+.route-modal-title{font-size:var(--fs-lg);font-weight:700;margin-bottom:3px;}
+.route-modal-sub{font-size:var(--fs-xs);color:var(--text-sub);}
+.route-modal-close{
+  background:var(--bg);border:none;border-radius:50%;
+  width:32px;height:32px;font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:var(--text-sub);flex-shrink:0;
+}
+.route-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;}
+.route-btn{
+  background:var(--bg);border:2.5px solid var(--border);border-radius:14px;
+  padding:18px 8px;display:flex;flex-direction:column;align-items:center;gap:7px;
+  cursor:pointer;font-family:inherit;font-size:var(--fs-xs);font-weight:700;color:var(--text);
+  transition:all .15s;
+}
+.route-btn:hover{border-color:var(--red);color:var(--red);background:var(--red-light);transform:translateY(-1px);}
+.route-btn-icon{font-size:28px;line-height:1;}
+.route-info-row{
+  display:flex;gap:14px;flex-wrap:wrap;padding:12px 14px;
+  background:var(--bg);border-radius:10px;font-size:var(--fs-xs);color:var(--text-sub);
+  border:2px solid var(--border);
+}
+
+/* ══════════════════════════════════════════
+   모바일 반응형 (768px 이하)
+══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* iOS Safari 자동 줌 방지: input 폰트 16px 이상 강제 */
+  input, textarea, select, .chat-input {
+    font-size: 16px !important;
+  }
+
+  /* 헤더 */
+  header { padding: 0 14px; height: 50px; }
+  .logo-title { font-size: 14px; }
+  #clock { display: none; }
+  .live-chip span { display: none; } /* 점만 표시 */
+
+  /* 접근성 버튼 작게 */
+  .a11y-panel { top: 168px; }
+  .a11y-btn { width: 52px; height: 52px; }
+  .a11y-btn-icon { font-size: 20px; }
+  .a11y-btn-label { font-size: 9px; }
+
+  /* 앱 레이아웃: 세로 단일 컬럼 */
+  .app { flex-direction: column; padding-top: 0; height: calc(100vh - 148px); }
+
+  /* ── 챗봇 패널: 기본 숨김 → 드로어로 변환 ── */
+  .chat-panel {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    width: 100%;
+    height: 75vh;
+    border-right: none;
+    border-top: 2.5px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    z-index: 350;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(.32,.72,0,1);
+    box-shadow: 0 -8px 32px rgba(0,0,0,.15);
+  }
+  .chat-panel.open {
+    transform: translateY(0);
+  }
+
+  /* 드로어 손잡이 */
+  .chat-panel::before {
+    content: '';
+    display: block;
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+  }
+
+  /* 챗봇 오버레이 (드로어 열릴 때 배경 dim) */
+  .chat-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.4);
+    z-index: 340;
+  }
+  .chat-overlay.show { display: block; }
+
+  /* ── 챗봇 플로팅 열기 버튼 ── */
+  .chat-fab {
+    display: flex !important; /* 모바일에서만 표시 */
+    position: fixed;
+    bottom: 24px; right: 20px;
+    z-index: 330;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: var(--red);
+    border: none; cursor: pointer;
+    align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(227,45,45,.5);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .chat-fab:hover { transform: scale(1.07); }
+  .chat-fab svg { fill: #fff; width: 26px; height: 26px; }
+  /* 알림 뱃지 */
+  .chat-fab-badge {
+    position: absolute; top: -2px; right: -2px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #ff9800; color: #fff;
+    font-size: 10px; font-weight: 700;
+    display: none; align-items: center; justify-content: center;
+    border: 2px solid #fff;
+  }
+  .chat-fab-badge.show { display: flex; }
+
+  /* 메인 스크롤: 전체 너비 */
+  .main-scroll {
+    padding: 20px 16px 120px; /* 하단 FAB 여유 */
+    height: calc(100vh - 50px);
+    overflow-y: auto;
+  }
+
+  /* 히어로 */
+  .hero h1 { font-size: 22px; }
+  .hero p  { font-size: 13px; }
+  .hero    { margin-bottom: 20px; }
+
+  /* SOS 버튼 */
+  .sos-clock-wrap { width: 120px; height: 120px; }
+  .sos-btn { width: 104px; height: 104px; }
+  .sos-btn-label { font-size: 15px; }
+  .sos-gauge { inset: 0; width: 100%; height: 100%; }
+
+  /* 검색 카드 */
+  .card { padding: 16px; }
+  .form-row2 { grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* 지도 높이 */
+  .map-wrap { height: 280px; }
+
+  /* 병원 카드 */
+  .hosp-card { flex-direction: column; gap: 10px; }
+  .hosp-right { display: flex; align-items: center; gap: 10px; width: 100%; }
+  .score-bar { flex: 1; }
+
+  /* 경로 모달 */
+  .route-modal-box { padding: 18px 16px 28px; }
+  .route-btns { grid-template-columns: repeat(4,1fr); gap: 8px; }
+  .route-btn { padding: 12px 6px; }
+  .route-btn-icon { font-size: 22px; }
+}
+
+/* 데스크탑에서 FAB 숨김 */
+.chat-fab { display: none; }
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<header>
+  <div class="logo">
+    <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2C8 2 4.5 5.5 4.5 9.5c0 5.25 7.5 12.5 7.5 12.5s7.5-7.25 7.5-12.5C19.5 5.5 16 2 12 2zm0 10a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg></div>
+    <div class="logo-title">응급실 <span>추천</span> 시스템</div>
+  </div>
+  <div class="hdr-right">
+    <div class="live-chip"><div class="live-dot"></div><span>실시간 연동</span></div>
+    <button class="qr-trigger-btn" onclick="openQrModal()" title="응급 의료정보 QR">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 3h7v7H3V3zm2 2v3h3V5H5zm7-2h7v7h-7V3zm2 2v3h3V5h-3zM3 13h7v7H3v-7zm2 2v3h3v-3H5zm10 0h2v2h-2v-2zm2-2h2v2h-2v-2zm-2 4h2v2h-2v-2zm2 0h2v2h-2v-2zm2-4h2v2h-2v-2zm-4 4h2v2h-2v-2z"/></svg>
+      QR
+    </button>
+    <div id="clock">--:--:--</div>
+    <span id="active-profile-badge" style="display:none; font-size:11px; color:#7F77DD; background:#f3f0ff; padding:3px 8px; border-radius:10px; white-space:nowrap;"></span>
+  </div>
+</header>
+
+<!-- ── 사용자 프로필 바 (통합) ─────────────────────────────── -->
+<div id="profile-bar" style="
+  margin-top:54px;
+  background:#fff;
+  border-bottom:1px solid #e4e4e4;
+  position:relative;
+  z-index:200;
+">
+  <!-- 메인 프로필 행 -->
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;flex-wrap:wrap;">
+
+    <!-- 아바타 + 이름/정보 -->
+    <div id="profile-avatar" onclick="toggleProfileDetail()" style="
+      width:38px;height:38px;border-radius:50%;
+      background:linear-gradient(135deg,#7F77DD,#5c54c4);
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;font-size:16px;font-weight:700;flex-shrink:0;
+      cursor:pointer;box-shadow:0 2px 8px rgba(127,119,221,.35);
+      border:2px solid #fff;
+    ">?</div>
+
+    <div onclick="toggleProfileDetail()" style="flex:1;min-width:0;cursor:pointer;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span id="profile-name-label" style="font-size:14px;font-weight:700;color:#1a1a1a;">프로필 없음</span>
+        <span id="profile-ktas-hint" style="display:none;font-size:10px;padding:1px 6px;border-radius:4px;background:#fef2f2;color:#dc2626;font-weight:600;border:1px solid #fca5a5;"></span>
+      </div>
+      <div id="profile-sub-label" style="font-size:11px;color:#888;margin-top:1px;">프로필을 등록하면 맞춤 추천을 받을 수 있어요</div>
+    </div>
+
+    <!-- 바이탈 칩 (가로 스크롤) -->
+    <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+      <div id="vital-hr" style="display:flex;align-items:center;gap:3px;background:#fff5f5;border:1px solid #fca5a5;border-radius:14px;padding:3px 9px;font-size:11px;color:#dc2626;">
+        ❤️ <span id="vital-hr-val">--</span>
+      </div>
+      <div id="vital-spo2" style="display:flex;align-items:center;gap:3px;background:#eff6ff;border:1px solid #93c5fd;border-radius:14px;padding:3px 9px;font-size:11px;color:#1d4ed8;">
+        🫁 <span id="vital-spo2-val">--</span>%
+      </div>
+      <div id="vital-bp" style="display:flex;align-items:center;gap:3px;background:#fdf4ff;border:1px solid #d8b4fe;border-radius:14px;padding:3px 9px;font-size:11px;color:#7e22ce;">
+        🩸 <span id="vital-bp-val">--</span>
+      </div>
+      <button onclick="openVitalsInput()" title="바이탈 입력" style="
+        width:28px;height:28px;border-radius:50%;background:#f3f4f6;border:1px solid #e5e7eb;
+        display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;
+        flex-shrink:0;
+      ">✏️</button>
+    </div>
+
+    <!-- 액션 버튼 -->
+    <div style="display:flex;gap:6px;flex-shrink:0;">
+      <button onclick="openAddUserModal()" style="
+        padding:5px 10px;background:#7F77DD;color:#fff;border:none;
+        border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;
+      ">+ 추가</button>
+      <button onclick="openEditProfileModal()" style="
+        padding:5px 10px;background:transparent;color:#7F77DD;
+        border:1.5px solid #7F77DD;border-radius:8px;font-size:11px;font-weight:600;
+        cursor:pointer;white-space:nowrap;
+      ">수정</button>
+      <button onclick="deleteCurrentUser()" title="현재 프로필 삭제" style="
+        padding:5px 10px;background:transparent;color:#dc2626;
+        border:1.5px solid #fca5a5;border-radius:8px;font-size:11px;font-weight:600;
+        cursor:pointer;white-space:nowrap;
+      ">🗑 삭제</button>
+    </div>
+  </div>
+
+  <!-- 펼침 패널 (기저질환·바이탈 상세) -->
+  <div id="profile-detail-panel" style="display:none;border-top:1px solid #f0f0f0;padding:10px 16px 12px;background:#fafafa;">
+
+    <!-- 사용자 전환 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-size:11px;color:#888;white-space:nowrap;">사용자:</span>
+      <select id="user-select" onchange="switchUser(this.value)" style="
+        flex:1;max-width:200px;padding:5px 8px;border:1px solid #ddd;
+        border-radius:8px;font-size:12px;background:#fff;
+      "></select>
+    </div>
+
+    <!-- 기저질환·복용약 태그 -->
+    <div id="profile-conditions-row" style="display:none;margin-bottom:8px;">
+      <div style="font-size:10px;color:#888;margin-bottom:4px;font-weight:600;letter-spacing:.04em;">기저질환 / 복용약</div>
+      <div id="profile-cond-tags" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+    </div>
+
+    <!-- 바이탈 수동 입력 패널 (inline) -->
+    <div id="vitals-input-panel" style="display:none;margin-top:6px;">
+      <div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:600;letter-spacing:.04em;">바이탈 직접 입력</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <label style="font-size:10px;color:#555;">심박(bpm)</label>
+          <input type="number" id="input-hr" placeholder="88" style="display:block;width:72px;padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:12px;margin-top:2px;">
+        </div>
+        <div>
+          <label style="font-size:10px;color:#555;">SpO₂(%)</label>
+          <input type="number" id="input-spo2" placeholder="97" style="display:block;width:72px;padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:12px;margin-top:2px;">
+        </div>
+        <div>
+          <label style="font-size:10px;color:#555;">수축기</label>
+          <input type="number" id="input-bp-sys" placeholder="120" style="display:block;width:72px;padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:12px;margin-top:2px;">
+        </div>
+        <div>
+          <label style="font-size:10px;color:#555;">이완기</label>
+          <input type="number" id="input-bp-dia" placeholder="80" style="display:block;width:72px;padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:12px;margin-top:2px;">
+        </div>
+        <button onclick="applyVitalsInput()" style="
+          padding:5px 12px;background:#7F77DD;color:#fff;border:none;
+          border-radius:6px;font-size:12px;cursor:pointer;
+        ">적용</button>
+      </div>
+      <span id="vitals-source-badge" style="font-size:10px;color:#aaa;display:block;margin-top:4px;"></span>
+    </div>
+  </div>
+</div>
+
+<!-- 접근성 플로팅 패널 (우측 상단 고정) -->
+<div class="a11y-panel">
+  <button class="a11y-btn" id="btnLargeText" onclick="toggleLargeText()">
+    <span class="a11y-btn-icon">가</span>
+    <span class="a11y-btn-label">큰<br>글씨</span>
+  </button>
+  <button class="a11y-btn" id="btnHighContrast" onclick="toggleHighContrast()">
+    <span class="a11y-btn-icon">◐</span>
+    <span class="a11y-btn-label">고<br>대비</span>
+  </button>
+</div>
+
+<!-- 챗봇 드로어 오버레이 (모바일) -->
+<div class="chat-overlay" id="chatOverlay" onclick="closeChatDrawer()"></div>
+
+<!-- 챗봇 플로팅 열기 버튼 (모바일) -->
+<button class="chat-fab" id="chatFab" onclick="openChatDrawer()">
+  <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+  <div class="chat-fab-badge" id="chatFabBadge">!</div>
+</button>
+
+<!-- QR 의료정보 모달 -->
+<div class="qr-modal" id="qrModal">
+  <div class="qr-box">
+    <h3>🏷️ 응급 의료정보 QR</h3>
+    <p>구급대원·의료진이 이 QR을 스캔해 환자 정보를 확인합니다</p>
+    <canvas id="qrCanvas" style="display:block;margin:0 auto 16px;border-radius:8px;"></canvas>
+    <div class="qr-info-list" id="qrInfoList">—</div>
+    <button class="qr-close-btn" onclick="closeQrModal()">닫기</button>
+  </div>
+</div>
+
+<!-- SOS 오버레이 -->
+<div class="sos-overlay" id="sosOverlay">
+  <div class="sos-count" id="sosCount">3</div>
+  <div class="sos-count-txt">119에 연결합니다</div>
+  <button class="sos-cancel" onclick="cancelSOS()">취소</button>
+</div>
+
+<!-- 로딩 -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-txt" id="loadingTxt">응급실 검색 중...</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="app">
+
+  <!-- 좌측 챗봇 패널 -->
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <div class="chat-panel-header-left">
+        <div class="chat-panel-title">증상 AI 분류</div>
+        <div class="chat-badges">
+          <span class="badge badge-gpt">GPT-4o-mini</span>
+          <span class="badge badge-live">실시간</span>
+          <span class="badge badge-voice">🎤 Whisper</span>
+        </div>
+      </div>
+      <button class="btn-reset-chat" onclick="resetChat()" title="대화 초기화">↺ 초기화</button>
+    </div>
+
+    <div class="chat-msgs" id="chatMsgs">
+      <div class="bubble ai">안녕하세요! 증상을 말씀해 주세요.<br>
+      <strong>텍스트</strong> 또는 <strong>🎤 음성</strong>으로 입력하시면 KTAS 중증도를 자동 분류합니다.<br>
+      <em style="color:var(--text-hint);font-size:var(--fs-xs);">예: "갑자기 가슴이 쥐어짜고 왼팔이 저려요"</em></div>
+    </div>
+    <div class="typing-wrap" id="typing">
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+    </div>
+
+    <div class="chat-input-wrap">
+      <div class="voice-status" id="voiceStatus">🎤 녹음 중<span class="voice-timer" id="voiceTimer">5</span>초</div>
+      <input class="chat-input" id="chatIn" type="text" placeholder="증상을 입력하세요..." />
+      <button class="btn-icon btn-voice" id="voiceBtn" onclick="toggleVoice()" title="음성 입력">
+        <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3zm-1 14.93A7 7 0 015 11H3a9 9 0 008 8.94V22h2v-2.06A9 9 0 0021 11h-2a7 7 0 01-6 6.93z"/></svg>
+      </button>
+      <button class="btn-icon btn-send" onclick="sendChat()">
+        <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- 우측 메인 스크롤 -->
+  <div class="main-scroll">
+
+    <!-- 히어로 -->
+    <div class="hero">
+      <h1>응급실 추천 시스템</h1>
+      <p>빠르고 정확한 응급실 찾기 서비스</p>
+    </div>
+
+    <!-- 119 버튼 -->
+    <div class="sos-wrap">
+      <div class="sos-clock-wrap">
+        <!-- 시계 게이지 SVG (12시 방향부터 시계방향으로 채워짐) -->
+        <svg class="sos-gauge" id="sosGaugeSvg" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+          <!-- 눈금 12개 (시계 시침처럼) -->
+          <circle class="sos-gauge-bg" cx="75" cy="75" r="65"/>
+          <circle class="sos-gauge-fill" id="sosGaugeFill" cx="75" cy="75" r="65"/>
+        </svg>
+
+        <button class="sos-btn" id="sosBtn"
+          onmousedown="startSOS()" onmouseup="stopSOS()" onmouseleave="stopSOS()"
+          ontouchstart="startSOS(event)" ontouchend="stopSOS()">
+          <div class="sos-countdown-num" id="sosCountNum">3</div>
+          <svg class="phone-icon" viewBox="0 0 24 24">
+            <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+          </svg>
+          <span class="sos-btn-label">119 신고</span>
+        </button>
+      </div>
+      <div class="sos-hint">3초간 길게 눌러 신고</div>
+    </div>
+
+    <!-- KTAS 결과 -->
+    <div class="ktas-result" id="ktasResult">
+      <div class="ktas-row">
+        <span class="ktas-badge" id="ktasBadge">KTAS 3</span>
+        <span style="font-size:var(--fs-sm);font-weight:600;" id="ktasDept">내과</span>
+      </div>
+      <div class="ktas-reason" id="ktasReason">—</div>
+    </div>
+
+    <!-- 지도 -->
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-info">
+        <strong id="locName">위치 확인 중...</strong>
+        <span id="locCoord">---, ---</span>
+      </div>
+      <!-- 현위치 버튼 -->
+      <button class="map-myloc-btn" onclick="goMyLoc()" title="현재 위치로 이동">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+        </svg>
+        <span>현위치</span>
+      </button>
+    </div>
+
+    <!-- 경로 모달 -->
+    <div class="route-modal" id="routeModal">
+      <div class="route-modal-box">
+        <div class="route-modal-header">
+          <div>
+            <div class="route-modal-title" id="routeHospName">병원명</div>
+            <div class="route-modal-sub" id="routeHospAddr">주소</div>
+          </div>
+          <button class="route-modal-close" onclick="closeRouteModal()">✕</button>
+        </div>
+        <!-- 병원 상세 정보 -->
+        <div id="routeHospDetail" style="margin:10px 0 14px;padding:10px 12px;background:var(--bg);border-radius:10px;font-size:13px;line-height:1.7;"></div>
+        <div class="route-btns">
+          <button class="route-btn" onclick="openRoute('car')">
+            <span class="route-btn-icon">🚗</span><span>자동차</span>
+          </button>
+          <button class="route-btn" onclick="openRoute('taxi')">
+            <span class="route-btn-icon">🚕</span><span>택시</span>
+          </button>
+          <button class="route-btn" onclick="openRoute('transit')">
+            <span class="route-btn-icon">🚌</span><span>대중교통</span>
+          </button>
+          <button class="route-btn" onclick="openRoute('walk')">
+            <span class="route-btn-icon">🚶</span><span>도보</span>
+          </button>
+          <button class="route-btn" onclick="call119()" style="background:#e32d2d;color:#fff;border-color:#e32d2d;">
+            <span class="route-btn-icon">🚑</span><span>119 신고</span>
+          </button>
+        </div>
+        <div class="route-info-row">
+          <span id="routeDist">—</span>
+          <span id="routeEta">—</span>
+          <span id="routeBed">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 병원 리스트 (지도 하단 고정, 항상 표시) -->
+    <div id="resultSection">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div class="section-title" style="margin-bottom:2px;">주변 응급실</div>
+          <div class="section-sub" id="hospSubLabel">위치 확인 중...</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span id="nemc-status-badge" style="display:none;font-size:10px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#166534;border:1px solid #86efac;font-weight:600;">● 실시간</span>
+          <span id="fallback-status-badge" style="display:none;font-size:10px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-weight:600;">● 카카오 검색</span>
+          <button onclick="runSearch()" id="searchBtn" style="
+            padding:6px 14px;background:var(--red);color:#fff;border:none;
+            border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;
+          ">🔄 새로고침</button>
+        </div>
+      </div>
+      <div class="hosp-list" id="hospList"><div style="padding:24px;text-align:center;color:var(--text-hint);font-size:14px;">📍 위치를 확인하는 중입니다...</div></div>
+    </div>
+
+  </div><!-- /main-scroll -->
+</div><!-- /app -->
+
+<script>
+// ══════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════
+const KAKAO_JS_KEY  = 'd70fdcdcee3966203240bcd1e38baf9d';
+const EMER_KEY      = 'ea96888b80ad785fc4faaf0ba1e1af69be3d07a3ca34b05f263c6d7986cb0899';
+const EMER_BASE     = 'https://apis.data.go.kr/B552657/ErmctInfoInqireService';
+const BACKEND_URL   = (() => {
+  const prod = 'https://web-production-0d56e.up.railway.app';
+  if (window.EMERGENCY_BACKEND_URL) return window.EMERGENCY_BACKEND_URL;
+  if (location.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(location.hostname)) {
+    return 'http://127.0.0.1:5000';
+  }
+  return prod;
+})();
+
+const DEPT_MAP = {
+  cardiac:{label:'심혈관',field:'hvOryn',kw:['흉통','심정지','좌측 팔 저림','식은땀']},
+  neuro:{label:'신경과',field:'hvNsyn',kw:['뇌졸중','두통','의식저하']},
+  trauma:{label:'외상',field:'hvOrtho',kw:['외상','골절']},
+  peds:{label:'소아과',field:'hvPed',kw:['소아 증상','발열']},
+  ob:{label:'산부인과',field:'hvOb',kw:['진통']},
+  opth:{label:'안과',field:'hvEyef',kw:['안과 이상']},
+  internal:{label:'내과',field:'hvInternal',kw:['복통','구토']},
+  general:{label:'응급',field:null,kw:[]}
+};
+
+// ── STATE ────────────────────────────────
+let userLat=null,userLng=null;
+let kakaoMap=null,mapReady=false;
+let overlays=[],rawHospitals=[],useReal=false;
+let detKtas=null,detDept=null,selectedGender='';
+let isRecording=false,mediaRecorder=null,audioChunks=[];
+let voiceTimerInterval=null;
+let sosTimer=null,sosCountInterval=null;
+
+// ══════════════════════════════════════════
+//  접근성: 큰 글씨 / 고대비 모드
+// ══════════════════════════════════════════
+function toggleLargeText(){
+  const on=document.body.classList.toggle('large-text');
+  document.getElementById('btnLargeText').classList.toggle('active',on);
+  localStorage.setItem('a11y-large',on?'1':'');
+  showToast(on?'큰 글씨 모드 켜짐':'기본 글씨 크기로 복원됨');
+}
+function toggleHighContrast(){
+  const on=document.body.classList.toggle('high-contrast');
+  document.getElementById('btnHighContrast').classList.toggle('active',on);
+  localStorage.setItem('a11y-contrast',on?'1':'');
+  showToast(on?'고대비 모드 켜짐':'일반 모드로 복원됨');
+}
+// 저장된 설정 복원
+(function restoreA11y(){
+  if(localStorage.getItem('a11y-large')){document.body.classList.add('large-text');document.getElementById('btnLargeText')?.classList.add('active');}
+  if(localStorage.getItem('a11y-contrast')){document.body.classList.add('high-contrast');document.getElementById('btnHighContrast')?.classList.add('active');}
+})();
+
+// ── CLOCK ────────────────────────────────
+(function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('ko-KR',{hour12:false});setTimeout(tick,1000);})();
+
+// ── 성별 ─────────────────────────────────
+function setGender(g){
+  selectedGender=g;
+  document.getElementById('gMale').classList.toggle('active',g==='male');
+  document.getElementById('gFemale').classList.toggle('active',g==='female');
+}
+
+// 나이 입력 시 19세 이하 → 소아과 자동 설정
+const ageInput = document.getElementById('age');
+if (ageInput) {
+  ageInput.addEventListener('change', function(){
+    const age = parseInt(this.value, 10);
+    if(!isNaN(age) && age <= 19 && age >= 0){
+      detDept = 'peds';
+      showToast(`${age}세 → 소아과 응급실을 우선 탐색합니다.`);
+      // 챗봇에도 안내
+      appendBubble(`${age}세로 확인됩니다. 소아과 응급실을 우선적으로 탐색합니다.`, 'sys');
+    } else if(!isNaN(age) && age > 19 && detDept === 'peds'){
+      // 성인으로 바뀌면 소아과 해제
+      detDept = null;
+    }
+  });
+}
+
+// ── 증상 태그 ─────────────────────────────
+function toggleTag(el){el.classList.toggle('active');}
+function setTags(list){document.querySelectorAll('.sym-tag').forEach(t=>{t.classList.toggle('active',list.includes(t.textContent));});}
+function clearTags(){document.querySelectorAll('.sym-tag').forEach(t=>t.classList.remove('active'));}
+function getActiveTags(){return Array.from(document.querySelectorAll('.sym-tag.active')).map(t=>t.textContent);}
+
+// ── 거리 계산 ─────────────────────────────
+function haversine(a,b,c,d){const R=6371000,dl=(c-a)*Math.PI/180,dn=(d-b)*Math.PI/180;const x=Math.sin(dl/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dn/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+
+// ══════════════════════════════════════════
+//  119 SOS
+// ══════════════════════════════════════════
+// ── 게이지 상수 ──────────────────────────────
+const GAUGE_R = 65;
+const GAUGE_CIRC = 2 * Math.PI * GAUGE_R; // ≈ 408.4
+
+let sosRAF = null; // requestAnimationFrame ID
+let sosStartTime = null;
+const SOS_DURATION = 3000; // 3초
+
+function startSOS(e){
+  if(e) e.preventDefault();
+  const btn = document.getElementById('sosBtn');
+  btn.classList.add('pressing');
+
+  // 게이지 초기화
+  const fill = document.getElementById('sosGaugeFill');
+  fill.style.strokeDashoffset = GAUGE_CIRC;
+  document.getElementById('sosCountNum').textContent = '3';
+
+  sosStartTime = performance.now();
+
+  function animateGauge(now){
+    const elapsed = now - sosStartTime;
+    const progress = Math.min(elapsed / SOS_DURATION, 1);
+
+    // 게이지 채우기 (0→CIRC: 비어있음→가득)
+    fill.style.strokeDashoffset = GAUGE_CIRC * (1 - progress);
+
+    // 카운트 숫자 갱신
+    const remaining = Math.ceil(SOS_DURATION / 1000 - (elapsed / 1000));
+    document.getElementById('sosCountNum').textContent = remaining > 0 ? remaining : '!';
+
+    if(progress < 1){
+      sosRAF = requestAnimationFrame(animateGauge);
+    } else {
+      // 3초 완료 → 전체화면 오버레이 + 119 연결
+      triggerSOS();
+    }
+  }
+  sosRAF = requestAnimationFrame(animateGauge);
+}
+
+function stopSOS(){
+  // 손을 뗐을 때 → 게이지 리셋
+  cancelAnimationFrame(sosRAF);
+  sosRAF = null;
+  sosStartTime = null;
+
+  const btn = document.getElementById('sosBtn');
+  btn.classList.remove('pressing');
+
+  const fill = document.getElementById('sosGaugeFill');
+  fill.style.transition = 'stroke-dashoffset .3s ease';
+  fill.style.strokeDashoffset = GAUGE_CIRC;
+  setTimeout(()=>{ fill.style.transition = 'stroke-dashoffset .05s linear'; }, 350);
+}
+
+function triggerSOS(){
+  // 게이지 완료 → 전체화면 오버레이 카운트다운 후 119
+  document.getElementById('sosBtn').classList.remove('pressing');
+  document.getElementById('sosOverlay').classList.add('show');
+  let c = 1;
+  document.getElementById('sosCount').textContent = c;
+  sosCountInterval = setInterval(()=>{
+    c--;
+    if(c <= 0){
+      clearInterval(sosCountInterval);
+      cancelSOS();
+      window.location.href = 'tel:119';
+    }
+  }, 1000);
+}
+
+function cancelSOS(){
+  clearInterval(sosCountInterval);
+  cancelAnimationFrame(sosRAF);
+  sosRAF = null;
+  document.getElementById('sosOverlay').classList.remove('show');
+  document.getElementById('sosBtn').classList.remove('pressing');
+  const fill = document.getElementById('sosGaugeFill');
+  fill.style.strokeDashoffset = GAUGE_CIRC;
+}
+
+// 모바일 터치 이벤트 방어
+document.getElementById('sosBtn').addEventListener('touchstart', e=>{ e.preventDefault(); startSOS(e); }, {passive:false});
+document.getElementById('sosBtn').addEventListener('touchend',   e=>{ e.preventDefault(); stopSOS(); },  {passive:false});
+
+// ══════════════════════════════════════════
+//  음성 입력
+// ══════════════════════════════════════════
+async function toggleVoice(){if(isRecording){stopRecording();}else{await startRecording();}}
+
+async function startRecording(){
+  if(!navigator.mediaDevices?.getUserMedia){appendBubble('마이크를 지원하지 않는 브라우저입니다.','voice-info');return;}
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:true});}
+  catch(e){appendBubble('마이크 권한이 없어 브라우저 음성인식으로 전환합니다.','voice-info');startWebSpeech();return;}
+
+  audioChunks=[];
+  const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/ogg;codecs=opus';
+  try{mediaRecorder=new MediaRecorder(stream,{mimeType:mime});}catch{mediaRecorder=new MediaRecorder(stream);}
+  mediaRecorder.ondataavailable=e=>{if(e.data.size>0)audioChunks.push(e.data);};
+  mediaRecorder.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());await sendToSTT(new Blob(audioChunks,{type:mediaRecorder.mimeType}));};
+  mediaRecorder.start(100);
+  isRecording=true;setVoiceUI(true);
+
+  let rem=5;document.getElementById('voiceTimer').textContent=rem;
+  voiceTimerInterval=setInterval(()=>{rem--;document.getElementById('voiceTimer').textContent=rem;if(rem<=0){clearInterval(voiceTimerInterval);stopRecording();}},1000);
+}
+
+function stopRecording(){clearInterval(voiceTimerInterval);isRecording=false;setVoiceUI(false);if(mediaRecorder?.state==='recording')mediaRecorder.stop();}
+
+function setVoiceUI(on){
+  document.getElementById('voiceBtn').classList.toggle('recording',on);
+  document.getElementById('voiceStatus').classList.toggle('show',on);
+}
+
+async function sendToSTT(blob){
+  appendBubble('🔄 음성 분석 중...','voice-info');
+  try{
+    const fd=new FormData();fd.append('audio',blob,'rec.webm');
+    const res=await fetch(`${BACKEND_URL}/stt`,{method:'POST',body:fd});
+    if(!res.ok)throw new Error('STT 서버 오류');
+    const data=await res.json();
+    const text=data.text?.trim();
+    if(!text)throw new Error('인식 결과 없음');
+    document.getElementById('chatIn').value=text;
+    appendBubble(`🎤 인식: "${text}"`,'voice-info');
+    setTimeout(()=>sendChat(),300);
+  }catch(e){
+    appendBubble('⚠️ Whisper STT 연결 실패. 브라우저 음성인식으로 전환합니다.','voice-info');
+    startWebSpeech();
+  }
+}
+
+function startWebSpeech(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){appendBubble('음성인식이 지원되지 않습니다. Chrome을 사용해 주세요.','voice-info');return;}
+  const r=new SR();r.lang='ko-KR';r.continuous=false;r.interimResults=false;
+  setVoiceUI(true);r.start();
+  r.onresult=e=>{const t=e.results[0][0].transcript.trim();document.getElementById('chatIn').value=t;appendBubble(`🎤 인식 (브라우저): "${t}"`,'voice-info');setVoiceUI(false);setTimeout(()=>sendChat(),300);};
+  r.onerror=e=>{setVoiceUI(false);appendBubble(`음성 오류: ${e.error}`,'voice-info');};
+  r.onend=()=>setVoiceUI(false);
+}
+
+// ══════════════════════════════════════════
+//  챗봇 (대화 히스토리 유지 + 추가 질문)
+// ══════════════════════════════════════════
+let chatHistory  = [];   // {role, content} 누적 - 팀원 API 형식
+let ktasContext  = '';   // 첫 응답에서 받은 ktas_context 캐싱
+let surveyDone   = false;
+
+function resetChat(){
+  chatHistory=[];ktasContext='';surveyDone=false;detKtas=null;detDept=null;
+  document.getElementById('chatMsgs').innerHTML='';
+  document.getElementById('ktasResult').classList.remove('show');
+  appendBubble('대화가 초기화됐습니다. 증상을 다시 말씀해 주세요.<br><em style="color:var(--text-hint);font-size:var(--fs-xs);">예: "갑자기 가슴이 쥐어짜고 왼팔이 저려요"</em>','ai');
+}
+
+function appendBubble(html,type){
+  const c=document.getElementById('chatMsgs');
+  const d=document.createElement('div');d.className=`bubble ${type}`;d.innerHTML=html;
+  c.appendChild(d);c.scrollTop=c.scrollHeight;
+  if(type==='ai'||type==='sys'||type==='crit') showFabBadge();
+}
+
+async function sendChat(){
+  const inp=document.getElementById('chatIn');
+  const msg=inp.value.trim();if(!msg)return;
+  appendBubble(msg,'user');inp.value='';
+
+  // 히스토리에 사용자 메시지 추가 (팀원 API 형식: role/content)
+  chatHistory.push({role:'user', content:msg});
+
+  // 패닉 발화 감지 → GPT 호출 없이 즉시 응급 시뮬레이션
+  if (typeof detectPanic === 'function' && detectPanic(msg)) {
+    triggerPanicMode(msg);
+    return;
+  }
+
+  // 로딩 말풍선을 매번 새로 생성 (기존 요소 재사용 시 appendChild 오류 발생)
+  const chatMsgsEl = document.getElementById('chatMsgs');
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'typing-wrap';
+  typingDiv.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+  chatMsgsEl.appendChild(typingDiv);
+  chatMsgsEl.scrollTop = 9999;
+
+  try{
+    let result;
+    try{
+      // 팀원 /classify API 호출
+      const body = { messages: chatHistory };
+      if(ktasContext) body.ktas_context = ktasContext;  // 첫 응답 이후 재전송
+      const twinPayload = (typeof buildTwinPayload === 'function') ? buildTwinPayload() : null;
+      if(twinPayload) body.twin_profile = twinPayload;   // Twin 프로파일 (있을 때만)
+      // 주변 응급실 목록 (GPT 추천 가중치용)
+      if(window._currentHospitals && window._currentHospitals.length){
+        body.hospital_list = window._currentHospitals.slice(0,5).map(h => ({
+          name:         h.name,
+          specialties:  h.specialties || [],
+          er_available: h.availBeds || 0
+        }));
+      }
+
+      const res=await fetch(`${BACKEND_URL}/classify`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      });
+      if(!res.ok) throw new Error(`서버 오류 ${res.status}`);
+      result=await res.json();
+      if(result.error) throw new Error(result.error);
+
+      // ktas_context 첫 응답에서만 내려옴 → 캐싱
+      if(result.ktas_context) ktasContext = result.ktas_context;
+
+    }catch(e){
+      console.warn('API 실패, 규칙 기반 사용:', e.message);
+      result = { type:'classification', ...ruleFallback(msg) };
+    }
+
+    typingDiv.remove();
+
+    // ── 추가 질문 ──────────────────────────
+    // type:"question" 이거나 question 필드만 있는 경우 모두 처리
+    if(result.type === 'question' || (result.question && !result.level)){
+      const q = result.question;
+      chatHistory.push({role:'assistant', content: JSON.stringify({type:'question', question:q})});
+      appendBubble(q,'ai');
+      return;
+    }
+
+    // ── 최종 분류 ──────────────────────────
+    // 팀원 API: level 대신 ktas 필드로 반환
+    const level  = parseInt(result.ktas ?? result.level, 10);
+    const reason = result.ktas_reason || result.reason || '';
+    const cc     = result.chief_complaint || '';
+    const deptLabelFromAPI = result.dept_label || '';
+
+    // level 유효성 검사
+    if(isNaN(level) || level < 1 || level > 5){
+      appendBubble('분류 결과를 받지 못했습니다. 다시 증상을 입력해 주세요.','ai');
+      console.warn('잘못된 level 값:', result);
+      return;
+    }
+
+    // KTAS → 진료과 매핑
+    const deptByCC = {
+      '흉통':'cardiac','심정지':'cardiac','심계항진':'cardiac',
+      '두통':'neuro','뇌졸중':'neuro','사지 약화':'neuro','실신':'neuro',
+      '복통':'internal','구토':'internal','설사':'internal',
+      '외상':'trauma','골절':'trauma','열상':'trauma',
+      '발열':'peds','소아':'peds',
+      '호흡':'internal','기침':'internal',
+    };
+    detKtas = level;
+    detDept = result.dept || Object.entries(deptByCC).find(([k])=>cc.includes(k))?.[1] || 'general';
+
+    // KTAS 결과 카드 업데이트
+    const kc={1:'#dc2626',2:'#ea580c',3:'#d97706',4:'#16a34a',5:'#3b82f6'};
+    const kl={1:'소생',2:'긴급',3:'응급',4:'준응급',5:'비응급'};
+    const deptLabels={cardiac:'심혈관',neuro:'신경과',trauma:'외상',peds:'소아과',internal:'내과',general:'응급'};
+    const deptLabel = deptLabelFromAPI || deptLabels[detDept] || '응급';
+
+    const ktasEl=document.getElementById('ktasResult');
+    ktasEl.classList.add('show');
+    ktasEl.style.borderColor=kc[level];
+    document.getElementById('ktasBadge').textContent=`KTAS ${level} · ${kl[level]}`;
+    document.getElementById('ktasBadge').style.cssText=`background:${kc[level]}20;color:${kc[level]};border:1px solid ${kc[level]}40;padding:3px 14px;border-radius:99px;font-size:var(--fs-sm);font-weight:700;`;
+    document.getElementById('ktasDept').textContent=deptLabel;
+    document.getElementById('ktasReason').textContent=reason;
+
+    const specialtyText = result.specialty
+      ? `<br><span style="color:#7F77DD;font-size:var(--fs-xs);">🏥 필요 진료과: ${result.specialty}</span>`
+      : '';
+    const twinUsedText = result.twin_used
+      ? `<br><span style="color:#1D9E75;font-size:var(--fs-xs);">👤 Twin 프로파일 반영됨</span>`
+      : '';
+    const specialtyMatchBadge = (result.specialty && typeof result.specialty_match === 'boolean')
+      ? (result.specialty_match
+          ? `<br><span style="color:#1D9E75;font-size:var(--fs-xs);">✅ 주변에 <strong>${result.specialty}</strong> 보유 병원 있음</span>`
+          : `<br><span style="color:#D85A30;font-size:var(--fs-xs);">⚠️ 주변에 ${result.specialty} 전문 병원 없음 — 거리 기준 추천</span>`)
+      : '';
+    const priorityText = result.hospital_priority
+      ? `<br><span style="color:#666;font-size:var(--fs-xs);">📋 병원 선택 근거: ${result.hospital_priority}</span>`
+      : '';
+
+    appendBubble(
+      `<strong>KTAS ${level}</strong> · ${kl[level]}<br>` +
+      `<span style="color:var(--text-hint);font-size:var(--fs-xs);">${reason}</span><br>` +
+      (cc ? `<span style="color:#1d4ed8;font-size:var(--fs-xs);">주호소: ${cc}</span>` : '') +
+      specialtyText +
+      specialtyMatchBadge +
+      priorityText +
+      twinUsedText,
+      'sys'
+    );
+
+    if(level <= 2){
+      appendBubble('🚨 즉각적인 처치가 필요합니다. 119에 신고하거나 최근접 응급실로 이동하세요.','crit');
+      setTimeout(()=>runSearch(),1000);
+    }
+
+    surveyDone=true;
+
+  }catch(e){
+    typingDiv.remove();
+    appendBubble('분석 오류가 발생했습니다. 증상 태그를 직접 선택해 주세요.','ai');
+    console.error(e);
+  }
+}
+
+// ── 사용자 프로파일 관리 (다중 사용자) ───────────────────────
+
+const USERS_KEY = 'emergency_app_users';
+const ACTIVE_USER_KEY = 'emergency_app_active_user';
+
+function getAllUsers() {
+  const raw = localStorage.getItem(USERS_KEY);
+  return raw ? JSON.parse(raw) : {};
+}
+
+function saveAllUsers(users) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+function getActiveUserId() {
+  return localStorage.getItem(ACTIVE_USER_KEY) || null;
+}
+
+function setActiveUserId(uid) {
+  localStorage.setItem(ACTIVE_USER_KEY, uid);
+}
+
+function getActiveProfile() {
+  const uid = getActiveUserId();
+  if (!uid) return null;
+  const users = getAllUsers();
+  return users[uid] || null;
+}
+
+function buildTwinPayload() {
+  const profile = getActiveProfile();
+  if (!profile) return null;
+  return {
+    age:              profile.age || null,
+    gender:           profile.gender || null,
+    conditions:       profile.conditions || [],
+    medications:      profile.medications || [],
+    allergies:        profile.allergies || [],
+    regular_hospital: profile.regular_hospital || null,
+    hr_bpm:           profile.hr_bpm || null,
+    spo2_pct:         profile.spo2_pct || null
+  };
+}
+
+function renderUserSelector() {
+  const users = getAllUsers();
+  const activeId = getActiveUserId();
+  const select = document.getElementById('user-select');
+  if (!select) return;
+
+  select.innerHTML = '';
+
+  const keys = Object.keys(users);
+  if (keys.length === 0) {
+    select.innerHTML = '<option value="">사용자 없음 — 추가해주세요</option>';
+    return;
+  }
+
+  keys.forEach(uid => {
+    const opt = document.createElement('option');
+    opt.value = uid;
+    opt.textContent = users[uid].name || '이름 없음';
+    if (uid === activeId) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+function switchUser(uid) {
+  setActiveUserId(uid);
+  updateProfileBadge();
+}
+
+function deleteCurrentUser() {
+  const uid = getActiveUserId();
+  if(!uid){ showToast('삭제할 프로필이 없습니다.'); return; }
+  const users = getAllUsers();
+  const name = users[uid]?.name || '프로필';
+  if(!confirm(`"${name}" 프로필을 삭제하시겠습니까?`)) return;
+
+  delete users[uid];
+  saveAllUsers(users);
+
+  // 다른 사용자로 전환하거나 비워두기
+  const remaining = Object.keys(users);
+  if(remaining.length > 0){
+    setActiveUserId(remaining[0]);
+  } else {
+    localStorage.removeItem(ACTIVE_USER_KEY);
+  }
+
+  renderUserSelector();
+  updateProfileBadge();
+  showToast(`🗑 "${name}" 프로필이 삭제되었습니다.`);
+}
+
+function updateProfileBadge() {
+  const profile = getActiveProfile();
+  const avatarEl   = document.getElementById('profile-avatar');
+  const nameEl     = document.getElementById('profile-name-label');
+  const subEl      = document.getElementById('profile-sub-label');
+  const condRow    = document.getElementById('profile-conditions-row');
+  const condTags   = document.getElementById('profile-cond-tags');
+  const ktasHint   = document.getElementById('profile-ktas-hint');
+
+  if(!nameEl) return;
+
+  if(profile){
+    // 아바타 이니셜
+    const initial = (profile.name||'?')[0].toUpperCase();
+    if(avatarEl){ avatarEl.textContent = initial; }
+
+    // 이름 + 서브 라벨
+    nameEl.textContent = `${profile.name} · ${profile.age||'?'}세 · ${profile.gender||'?'}`;
+    const regHosp = (() => {
+      const r = profile.regular_hospital;
+      if(!r) return null;
+      return typeof r==='object' ? r.name : r;
+    })();
+    subEl.textContent = regHosp
+      ? `정기병원: ${regHosp}` + (profile.conditions?.length ? ` · 기저질환 ${profile.conditions.length}개` : '')
+      : (profile.conditions?.length ? `기저질환: ${profile.conditions.join(', ')}` : '건강 정보 없음');
+
+    // 기저질환·복용약 태그
+    const allTags = [...(profile.conditions||[]).map(c=>({t:c,color:'#fef2f2',tc:'#dc2626',bc:'#fca5a5'})),
+                     ...(profile.medications||[]).map(m=>({t:m,color:'#eff6ff',tc:'#1d4ed8',bc:'#93c5fd'})),
+                     ...(profile.allergies||[]).map(a=>({t:'⚠️'+a,color:'#fff7ed',tc:'#c2410c',bc:'#fdba74'}))];
+    if(allTags.length && condTags){
+      condRow.style.display = 'block';
+      condTags.innerHTML = allTags.map(tag=>
+        `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;
+         background:${tag.color};color:${tag.tc};border:1px solid ${tag.bc};">${tag.t}</span>`
+      ).join('');
+    } else if(condRow){
+      condRow.style.display = 'none';
+    }
+
+    // KTAS 힌트 (기저질환 있으면 표시)
+    if(ktasHint && profile.conditions?.length){
+      ktasHint.textContent = '보수적 판정';
+      ktasHint.style.display = 'inline-block';
+    } else if(ktasHint){
+      ktasHint.style.display = 'none';
+    }
+  } else {
+    if(avatarEl) avatarEl.textContent = '?';
+    nameEl.textContent = '프로필 없음';
+    subEl.textContent = '프로필을 등록하면 맞춤 추천을 받을 수 있어요';
+    if(condRow) condRow.style.display = 'none';
+    if(ktasHint) ktasHint.style.display = 'none';
+  }
+}
+
+function toggleProfileDetail(){
+  const panel = document.getElementById('profile-detail-panel');
+  if(!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  requestAnimationFrame(updateAppHeight);
+}
+
+function openAddUserModal() {
+  document.getElementById('modal-title').textContent = '새 사용자 추가';
+  document.getElementById('modal-username').value = '';
+  document.getElementById('modal-age').value = '';
+  document.getElementById('modal-gender').value = '';
+  document.getElementById('modal-conditions').value = '';
+  document.getElementById('modal-medications').value = '';
+  document.getElementById('modal-allergies').value = '';
+  document.getElementById('modal-hospital').value = '';
+  document.getElementById('profile-modal').style.display = 'flex';
+  window._editingUid = null;
+}
+
+function openEditProfileModal() {
+  const uid = getActiveUserId();
+  const profile = getActiveProfile();
+  if (!profile) { alert('먼저 사용자를 선택해주세요.'); return; }
+
+  document.getElementById('modal-title').textContent = '프로파일 수정';
+  document.getElementById('modal-username').value   = profile.name || '';
+  document.getElementById('modal-age').value        = profile.age || '';
+  document.getElementById('modal-gender').value     = profile.gender || '';
+  document.getElementById('modal-conditions').value = (profile.conditions || []).join(', ');
+  document.getElementById('modal-medications').value= (profile.medications || []).join(', ');
+  document.getElementById('modal-allergies').value  = (profile.allergies || []).join(', ');
+  document.getElementById('modal-hospital').value   = profile.regular_hospital || '';
+  document.getElementById('profile-modal').style.display = 'flex';
+  window._editingUid = uid;
+}
+
+function closeProfileModal() {
+  document.getElementById('profile-modal').style.display = 'none';
+}
+
+// ── Twin 프로파일 JSON 연동 (전역 함수) ─────────────────────
+function syncFromJSON() {
+  const btn = document.getElementById('sync-btn');
+  const sub = document.getElementById('sync-bar-sub');
+
+  // JSON 데이터를 직접 embed (fetch 불필요 — file://, GitHub Pages 모두 작동)
+  const p = {
+    "name": "김순자",
+    "age": 72,
+    "gender": "여",
+    "conditions": ["고혈압", "제2형 당뇨", "만성신장질환"],
+    "medications": ["암로디핀 5mg", "메트포르민 500mg", "아스피린 100mg"],
+    "allergies": ["이부프로펜", "조영제"],
+    "regular_hospital": {
+      "name": "서울대학교병원",
+      "department": "신장내과"
+    }
+  };
+
+  document.getElementById('modal-username').value    = p.name || '';
+  document.getElementById('modal-age').value         = p.age  || '';
+  document.getElementById('modal-gender').value      = p.gender || '';
+  document.getElementById('modal-conditions').value  = (p.conditions  || []).join(', ');
+  document.getElementById('modal-medications').value = (p.medications || []).join(', ');
+  document.getElementById('modal-allergies').value   = (p.allergies   || []).join(', ');
+
+  const rh = p.regular_hospital;
+  document.getElementById('modal-hospital').value =
+    (rh && typeof rh === 'object')
+      ? [rh.name, rh.department].filter(Boolean).join(' ')
+      : (rh || '');
+
+  if (btn) {
+    btn.textContent = '연동 완료 ✓';
+    btn.style.background = '#16a34a';
+  }
+  if (sub) {
+    sub.textContent = `${p.name} 님의 정보가 입력되었습니다`;
+    sub.style.color = '#15803d';
+  }
+
+  setTimeout(() => {
+    if (btn) {
+      btn.textContent = '연동하기';
+      btn.style.background = '#7F77DD';
+    }
+    if (sub) {
+      sub.textContent = '김순자 프로파일을 자동으로 불러옵니다';
+      sub.style.color = '#7c3aed';
+    }
+  }, 3000);
+}
+
+function saveProfileFromModal() {
+  const splitTrim = s => s.split(',').map(x => x.trim()).filter(Boolean);
+  const name = document.getElementById('modal-username').value.trim();
+  if (!name) { alert('이름을 입력해주세요.'); return; }
+
+  const profileData = {
+    name,
+    age:              parseInt(document.getElementById('modal-age').value) || null,
+    gender:           document.getElementById('modal-gender').value || null,
+    conditions:       splitTrim(document.getElementById('modal-conditions').value),
+    medications:      splitTrim(document.getElementById('modal-medications').value),
+    allergies:        splitTrim(document.getElementById('modal-allergies').value),
+    regular_hospital: document.getElementById('modal-hospital').value.trim() || null,
+    last_updated:     new Date().toISOString().split('T')[0]
+  };
+
+  const users = getAllUsers();
+  const uid = window._editingUid || ('user_' + Date.now());
+  users[uid] = profileData;
+  saveAllUsers(users);
+  setActiveUserId(uid);
+
+  renderUserSelector();
+  updateProfileBadge();
+  closeProfileModal();
+}
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', () => {
+  renderUserSelector();
+  updateProfileBadge();
+
+  // QR 모달 배경 클릭 닫기
+  const qm = document.getElementById('qrModal');
+  if(qm) qm.addEventListener('click', e=>{ if(e.target.id==='qrModal') closeQrModal(); });
+
+  // 프로필 로드 시 챗봇 안내
+  const profile = (typeof getActiveProfile==='function') ? getActiveProfile() : null;
+  if(profile && profile.name){
+    const condStr = (profile.conditions||[]).length ? ` · 기저질환 ${profile.conditions.length}개 반영` : '';
+    setTimeout(()=>appendBubble(
+      `👤 <strong>${profile.name}</strong>님 프로파일 로드됨${condStr}.<br>증상을 입력하시면 맞춤 분류를 시작합니다.`,'sys'
+    ), 300);
+  }
+
+  // 앱 높이 초기화
+  updateAppHeight();
+  requestAnimationFrame(updateAppHeight);
+
+  // 백엔드 & NEMC 상태 확인
+  checkBackendHealth();
+});
+
+// ── 웨어러블 바이탈 관리 ──────────────────────────────────────
+
+let currentVitals = { hr: null, spo2: null, bp_sys: null, bp_dia: null, source: 'none' };
+
+function openVitalsInput() {
+  const detail = document.getElementById('profile-detail-panel');
+  if(detail && detail.style.display === 'none') detail.style.display = 'block';
+  const panel = document.getElementById('vitals-input-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  requestAnimationFrame(updateAppHeight);
+}
+
+function applyVitalsInput() {
+  const hr     = parseInt(document.getElementById('input-hr')?.value) || null;
+  const spo2   = parseInt(document.getElementById('input-spo2')?.value) || null;
+  const bpSys  = parseInt(document.getElementById('input-bp-sys')?.value) || null;
+  const bpDia  = parseInt(document.getElementById('input-bp-dia')?.value) || null;
+
+  currentVitals = { hr, spo2, bp_sys: bpSys, bp_dia: bpDia, source: 'manual' };
+  renderVitals();
+
+  // 활성 프로파일에 바이탈 업데이트
+  const uid = getActiveUserId();
+  if (uid) {
+    const users = getAllUsers();
+    if (users[uid]) {
+      users[uid].hr_bpm   = hr;
+      users[uid].spo2_pct = spo2;
+      saveAllUsers(users);
+    }
+  }
+
+  // 임계값 경고 체크
+  checkVitalAlerts(hr, spo2, bpSys);
+
+  document.getElementById('vitals-input-panel').style.display = 'none';
+}
+
+function renderVitals() {
+  const setEl = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val !== null ? val : '--';
+  };
+  setEl('vital-hr-val', currentVitals.hr);
+  setEl('vital-spo2-val', currentVitals.spo2);
+  const bpText = (currentVitals.bp_sys && currentVitals.bp_dia)
+    ? `${currentVitals.bp_sys}/${currentVitals.bp_dia}` : '--/--';
+  const bpEl = document.getElementById('vital-bp-val');
+  if (bpEl) bpEl.textContent = bpText;
+
+  const badge = document.getElementById('vitals-source-badge');
+  if (badge) badge.textContent = currentVitals.source === 'manual' ? '(수동 입력)' : '';
+}
+
+function checkVitalAlerts(hr, spo2, bpSys) {
+  const alerts = [];
+  if (hr && (hr > 150 || hr < 40))  alerts.push(`심박수 이상: ${hr}bpm`);
+  if (spo2 && spo2 < 90)            alerts.push(`산소포화도 위험: ${spo2}%`);
+  if (bpSys && bpSys > 180)         alerts.push(`혈압 위험: ${bpSys}mmHg`);
+
+  if (alerts.length > 0) {
+    appendBubble(`
+⚠️ <strong>바이탈 이상 감지</strong><br>
+${alerts.map(a => `• ${a}`).join('<br>')}<br><br>
+증상이 있으시면 즉시 응급실 방문을 권장합니다.
+    `, 'crit');
+  }
+}
+
+// buildTwinPayload에 currentVitals 반영 (STEP 2 버전 덮어쓰기)
+function buildTwinPayload() {
+  const profile = getActiveProfile();
+  if (!profile) return null;
+  return {
+    age:              profile.age || null,
+    gender:           profile.gender || null,
+    conditions:       profile.conditions || [],
+    medications:      profile.medications || [],
+    allergies:        profile.allergies || [],
+    regular_hospital: profile.regular_hospital || null,
+    hr_bpm:           currentVitals.hr   || profile.hr_bpm   || null,
+    spo2_pct:         currentVitals.spo2 || profile.spo2_pct || null,
+    bp_systolic:      currentVitals.bp_sys || null
+  };
+}
+
+// ── 패닉 발화 감지 ────────────────────────────────────────────
+
+const PANIC_KEYWORDS = [
+  '죽을것같', '죽을 것 같', '숨못', '숨을 못', '못 쉬', '못쉬',
+  '쓰러', '의식', '안보여', '안 보여', '말이안', '말이 안',
+  '심장이', '가슴이 터', '너무 아파', '너무아파', '살려', '응급',
+  '갑자기', '막 이상', '이상해요', '쥐어짜', '왼팔', '왼쪽 팔'
+];
+
+function detectPanic(text) {
+  if (!text) return false;
+  const normalized = text.replace(/\s/g, '').toLowerCase();
+  return PANIC_KEYWORDS.some(kw => normalized.includes(kw.replace(/\s/g, '')));
+}
+
+function getSpecialtyFromConditions(conditions) {
+  const map = {
+    '고혈압': '심장내과', '관상동맥질환': '심장내과', '부정맥': '심장내과',
+    '당뇨': '내분비내과', '갑상선': '내분비내과',
+    '뇌졸중': '신경과', '뇌경색': '신경과', '파킨슨': '신경과',
+    '천식': '호흡기내과', '폐렴': '호흡기내과', 'COPD': '호흡기내과',
+    '신부전': '신장내과', '투석': '신장내과',
+    '간경화': '소화기내과', '간염': '소화기내과'
+  };
+  for (const cond of conditions || []) {
+    for (const [key, dept] of Object.entries(map)) {
+      if (cond.includes(key)) return dept;
+    }
+  }
+  return null;
+}
+
+function triggerPanicMode(symptomText) {
+  const profile = getActiveProfile();
+
+  // 챗봇 패널에 즉시 반응 메시지 표시
+  const msg = `
+⚠️ <strong>패닉 상태 감지</strong><br>
+추가 질문 없이 바로 연결합니다.<br><br>
+${profile ? `👤 <strong>${profile.name}</strong> 님의 프로파일 로드됨<br>
+기저질환: ${(profile.conditions||[]).join(', ') || '없음'}<br>
+복용약: ${(profile.medications||[]).join(', ') || '없음'}<br><br>` : ''}
+🔴 <strong>KTAS 1~2 의심 — 즉시 응급실로 이동하세요</strong><br><br>
+[시뮬레이션] 가장 가까운 응급실로 자동 연결 중...
+  `;
+  appendBubble(msg, 'crit');
+
+  // 프로파일 있으면 QR 자동 표시 (구급대원 전달용)
+  if(profile) {
+    setTimeout(() => {
+      appendBubble('🏷️ <strong>응급 의료정보 QR</strong>이 생성되었습니다.<br>구급대원에게 보여주세요.', 'sys');
+      openQrModal();
+    }, 800);
+  }
+
+  // 2초 후 병원 추천 시뮬레이션 카드 표시
+  setTimeout(() => {
+    showPanicHospitalCard(profile);
+  }, 2000);
+}
+
+function showPanicHospitalCard(profile) {
+  const specialty = getSpecialtyFromConditions(profile?.conditions || []);
+
+  // 실제 로드된 병원 데이터 우선 사용
+  const hospitals = window._currentHospitals;
+  if(hospitals && hospitals.length > 0){
+    // 기저질환 매칭 병원 우선, 없으면 1순위
+    let best = hospitals[0];
+    if(specialty){
+      const matched = hospitals.find(h => (h.specialties||[]).some(s => s.includes(specialty.replace(/과$/,''))));
+      if(matched) best = matched;
+    }
+
+    const specBadges = (best.specialties||[]).slice(0,4).map(s=>`<span style="display:inline-block;padding:1px 7px;background:#e0f2fe;color:#0369a1;border-radius:6px;font-size:11px;margin:2px 2px 0 0;">${s}</span>`).join('');
+    const matchBadge = specialty && (best.specialties||[]).some(s=>s.includes(specialty.replace(/과$/,'')))
+      ? `<div style="font-size:12px;color:#1D9E75;margin:6px 0;">✅ <strong>${specialty}</strong> 진료 가능 (기저질환 매칭)</div>` : '';
+    const bedColor = {ok:'#16a34a',warn:'#d97706',crit:'#dc2626'}[best.available]||'#555';
+    const hospIdx = hospitals.indexOf(best);
+
+    const cardHtml = `
+<div style="background:#fff0f0;border:2px solid #D85A30;border-radius:12px;padding:14px 16px;margin-top:8px;">
+  <div style="font-size:13px;font-weight:600;color:#D85A30;margin-bottom:8px;">🚨 즉시 이동 추천 병원</div>
+  <div style="font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:2px;">${best.name}</div>
+  <div style="font-size:11px;color:#888;margin-bottom:6px;">${best.address||''}</div>
+  <div style="margin-bottom:6px;">${specBadges||'<span style="font-size:11px;color:#aaa;">특수과 정보 없음</span>'}</div>
+  ${matchBadge}
+  <div style="display:flex;gap:14px;font-size:12px;color:#555;margin-bottom:10px;flex-wrap:wrap;">
+    <span>📍 ${best.dist}km</span>
+    <span>⏱️ 약 ${best.eta}분</span>
+    <span>🛏️ <span style="color:${bedColor};font-weight:600;">병상 ${best.availBeds}개</span></span>
+    ${best.phone ? `<span>📞 ${best.phone}</span>` : ''}
+  </div>
+  <button onclick="openRouteModal(${hospIdx})" style="width:100%;padding:10px;background:#D85A30;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🗺 지금 바로 출발</button>
+</div>`;
+    appendBubble(cardHtml, 'ai');
+
+  } else {
+    // 병원 데이터 없을 때: 검색 유도
+    appendBubble(`
+<div style="background:#fff0f0;border:2px solid #D85A30;border-radius:12px;padding:14px 16px;margin-top:8px;">
+  <div style="font-size:13px;font-weight:600;color:#D85A30;margin-bottom:6px;">🚨 즉시 응급실로 이동하세요</div>
+  <div style="font-size:12px;color:#555;margin-bottom:10px;">위치 정보를 가져오는 중입니다. 아래 버튼으로 주변 응급실을 검색하거나 119에 신고하세요.</div>
+  <div style="display:flex;gap:8px;">
+    <button onclick="runSearch()" style="flex:1;padding:9px;background:#D85A30;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🔍 응급실 검색</button>
+    <button onclick="location.href='tel:119'" style="flex:1;padding:9px;background:#b71c1c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🚑 119 신고</button>
+  </div>
+</div>`, 'ai');
+  }
+}
+
+document.getElementById('chatIn').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
+
+// 규칙 기반 폴백
+function ruleFallback(t){
+  const rules=[
+    {kw:['심정지'],ktas:1,dept:'cardiac',tags:['심정지','흉통']},
+    {kw:['의식없','쓰러','실신'],ktas:1,dept:'neuro',tags:['의식저하']},
+    {kw:['뇌졸중','뇌경색'],ktas:1,dept:'neuro',tags:['뇌졸중']},
+    {kw:['쥐어짜','왼팔','좌측 팔'],ktas:2,dept:'cardiac',tags:['흉통','좌측 팔 저림']},
+    {kw:['진통','산통'],ktas:2,dept:'ob',tags:['진통']},
+    {kw:['골절'],ktas:3,dept:'trauma',tags:['골절','외상']},
+    {kw:['호흡','숨'],ktas:3,dept:'internal',tags:['호흡곤란']},
+    {kw:['복통','배'],ktas:3,dept:'internal',tags:['복통']},
+    {kw:['흉통','가슴'],ktas:3,dept:'cardiac',tags:['흉통']},
+    {kw:['두통','머리'],ktas:4,dept:'neuro',tags:['두통']},
+    {kw:['발열','열'],ktas:4,dept:'peds',tags:['발열']},
+    {kw:['구토','토하'],ktas:4,dept:'internal',tags:['구토']},
+  ];
+  for(const r of rules){if(r.kw.some(k=>t.includes(k))){const dl=DEPT_MAP[r.dept]?.label||'응급';const kl={1:'소생',2:'긴급',3:'응급',4:'준응급',5:'비응급'};return{ktas:r.ktas,ktas_reason:'규칙 기반 분류',dept:r.dept,dept_label:dl,symptoms:r.tags,critical:r.ktas<=2,message:`KTAS ${r.ktas}(${kl[r.ktas]}): ${dl} 진료가 필요합니다.`};}}
+  return{ktas:4,ktas_reason:'기본 분류',dept:'general',dept_label:'응급',symptoms:[],critical:false,message:'응급실 방문이 필요합니다.'};
+}
+
+// ══════════════════════════════════════════
+//  응급실 검색 & 최적화
+// ══════════════════════════════════════════
+async function runSearch(){
+  if(!userLat){showToast('위치 정보를 확인 중입니다. 잠시 후 다시 시도해 주세요.');return;}
+  const btn=document.getElementById('searchBtn');if(btn)btn.disabled=true;
+  showLoad('응급실 데이터 불러오는 중...');
+
+  const isCrit=detKtas&&detKtas<=2;
+
+  // 항상 최신 데이터 조회 (detDept 유무 관계없이)
+  const ed=await fetchEmer(userLat,userLng,detDept||null);
+  if(ed&&ed.length){
+    useReal=true;rawHospitals=ed;
+  }else{
+    // NEMC 실패 → 카카오 장소 검색 폴백
+    await new Promise(r=>{
+      kakaoFallback(userLat,userLng,detDept||null,fb=>{
+        useReal=false;
+        if(fb.length) rawHospitals=fb;
+        r();
+      });
+    });
+  }
+
+  await new Promise(r=>setTimeout(r,400));
+
+  if(!rawHospitals.length){
+    hideLoad();if(btn)btn.disabled=false;
+    showToast('주변 응급실 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+
+  const scored=rawHospitals.map(h=>({...h,score:calcScore(h,detKtas,detDept)}));
+  scored.sort((a,b)=>b.score-a.score);
+  const top5=scored.slice(0,5);
+
+  hideLoad();btn.disabled=false;
+  renderMarkers(top5,isCrit);
+  renderHospList(top5,isCrit);
+
+  if(mapReady&&top5[0]){
+    const bounds=new kakao.maps.LatLngBounds();
+    bounds.extend(new kakao.maps.LatLng(userLat,userLng));
+    top5.forEach(h=>{
+      const lat=parseFloat(h.lat),lng=parseFloat(h.lng);
+      if(isFinite(lat)&&isFinite(lng)) bounds.extend(new kakao.maps.LatLng(lat,lng));
+    });
+    kakaoMap.setBounds(bounds,80);
+  }
+
+  if(top5[0]){
+    const t=top5[0];
+    appendBubble(`✅ <strong>${t.name}</strong> 추천<br>🚗 ${t.dist}km · ⏱️ ${t.eta}분 · 🏥 가용 ${t.availBeds}병상`,'sys');
+  }
+
+  // resultSection 항상 표시됨
+  document.getElementById('resultSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function calcScore(h,ktas,dept){
+  // ── 기존 병원 우선 고려: 프로파일의 regular_hospital과 이름 매칭 시 보너스 ──
+  const profile = (typeof getActiveProfile==='function') ? getActiveProfile() : null;
+  const regularHosp = profile?.regular_hospital;
+  let regularBonus = 0;
+  if(regularHosp && h.name){
+    // 문자열 또는 {name,department} 객체 모두 처리
+    const regName = typeof regularHosp==='object' ? (regularHosp.name||'') : String(regularHosp);
+    if(regName && h.name.includes(regName.replace(/병원|의원|센터/g,'').trim())){
+      regularBonus = 15; // 동일 병원 계열 우선 가산
+    }
+  }
+
+  if(!ktas||ktas<=2){
+    // KTAS 1-2: 거리+병상 중심, 기존 병원 소폭 반영
+    return Math.max(10, Math.round(100 - parseFloat(h.dist)*8 - h.eta*.5 + regularBonus*0.5));
+  }
+  let s=100;
+  s-=h.eta*1.6;
+  s-=Math.max(0,h.occupancy-40)*.5;
+  if(h.available==='crit')s-=18;
+  if(h.available==='ok')s+=5;
+  s-=parseFloat(h.dist)*1.2;
+  if(dept&&dept!=='general'&&h.depts?.[dept])s+=22;
+  s+=regularBonus; // 기존 병원 가산
+  s+=Math.random()*4-2;
+  return Math.max(10,Math.min(99,Math.round(s)));
+}
+
+// ── NEMC API ─────────────────────────────
+// 특수과 한글명 → 내부 dept 키 매핑 (DEPT_MAP과 호환)
+const SPECIALTY_TO_DEPT = {
+  '심장내과':'cardiac','흉부외과':'cardiac',
+  '신경과':'neuro','신경외과':'neuro',
+  '정형외과':'trauma',
+  '소아과':'peds',
+  '산부인과':'ob',
+  '안과':'opth',
+  '내분비내과':'internal','소화기내과':'internal','비뇨기과':'internal',
+  '응급의학과':'general'
+};
+
+async function fetchEmer(lat,lng,deptKey){
+  try{
+    // backend /hospitals 프록시 호출
+    const url = `${BACKEND_URL}/hospitals?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('backend 응답오류 '+res.status);
+    const json = await res.json();
+    const items = json.hospitals || [];
+    if(!items.length) throw new Error('항목없음');
+
+    let hospitals = items.map(item => {
+      const hlat = parseFloat(item.lat), hlng = parseFloat(item.lng);
+      if(!isFinite(hlat) || !isFinite(hlng)) return null;
+      const hvec = parseInt(item.availBeds || item.er_available || 0) || 0;
+      const hpbdn = 10; // backend가 별도 미제공 → 추정치
+      const occ = Math.min(Math.round((1 - hvec/hpbdn)*100), 99);
+      const d = haversine(lat, lng, hlat, hlng);
+
+      // specialties (Korean names) → depts 매핑
+      const depts = {};
+      Object.keys(DEPT_MAP).forEach(k => { depts[k] = false; });
+      (item.specialties || []).forEach(sp => {
+        const k = SPECIALTY_TO_DEPT[sp];
+        if(k) depts[k] = true;
+      });
+
+      return {
+        name:           item.name,
+        address:        item.address,
+        phone:          item.phone,
+        lat:            hlat,
+        lng:            hlng,
+        occupancy:      occ,
+        available:      occ<60?'ok':occ<80?'warn':'crit',
+        availBeds:      hvec,
+        surgeryBeds:    item.surgeryBeds || 0,
+        icuBeds:        item.icuBeds    || 0,
+        eta:            Math.round(d/500+3),
+        dist:           (d/1000).toFixed(1),
+        depts,
+        specialties:    item.specialties    || [],
+        serious_accept: item.serious_accept || [],
+        er_type:        item.er_type        || '',
+        realtime:       item.realtime       || false,
+        updated_at:     item.updated_at     || '',
+        real:           true
+      };
+    }).filter(Boolean);
+
+    if(deptKey && deptKey!=='general' && detKtas && detKtas>=3){
+      const f = hospitals.filter(h => h.depts[deptKey]);
+      if(f.length >= 3) hospitals = f;
+    }
+    return hospitals;
+  }catch(e){
+    console.warn('[NEMC backend] 실패:', e.message);
+    console.info('[NEMC] 원인 진단:', {
+      url: `${BACKEND_URL}/hospitals`,
+      hint: 'Railway 환경변수 NEMC_API_KEY 확인 → /health 엔드포인트에서 nemc_ready 확인'
+    });
+    return null;
+  }
+}
+
+function kakaoFallback(lat,lng,dept,cb){
+  if(!mapReady){cb([]);return;}
+  const di=dept&&DEPT_MAP[dept],kw=di&&dept!=='general'?`${di.label} 응급실`:'응급실';
+  const ps=new kakao.maps.services.Places();
+  ps.keywordSearch(kw,(data,status)=>{
+    if(status===kakao.maps.services.Status.OK)cb(buildFb(data,lat,lng,dept));
+    else ps.keywordSearch('응급실',(d2,s2)=>cb(s2===kakao.maps.services.Status.OK?buildFb(d2,lat,lng,dept):[]));
+  },{location:new kakao.maps.LatLng(lat,lng),radius:8000,size:15});
+}
+
+function buildFb(data,lat,lng,dept){
+  return data.slice(0,10).map(p=>{
+    const occ=Math.floor(Math.random()*55+20);
+    const hlat=parseFloat(p.y),hlng=parseFloat(p.x),d=haversine(lat,lng,hlat,hlng);
+    const depts={};Object.keys(DEPT_MAP).forEach(k=>{depts[k]=Math.random()>.4;});
+    if(dept&&dept!=='general')depts[dept]=true;
+    // 카카오 fallback - 진료과 배열도 포함해 모달에서 정보 표시 가능하게
+    const specList = Object.entries(depts).filter(([,v])=>v).map(([k])=>DEPT_MAP[k]?.label).filter(Boolean);
+    return{name:p.place_name,address:p.address_name,phone:p.phone,lat:hlat,lng:hlng,
+      occupancy:occ,available:occ<60?'ok':occ<80?'warn':'crit',
+      availBeds:Math.floor(Math.random()*15+2),eta:Math.round(d/500+3),dist:(d/1000).toFixed(1),
+      depts,specialties:specList,real:false,score:0};
+  });
+}
+
+// ── 마커 ─────────────────────────────────
+function clearOverlays(){overlays.forEach(o=>o.setMap(null));overlays=[];}
+
+function renderMarkers(hospitals,isCrit){
+  if(!mapReady)return;
+  clearOverlays();
+  const cm={ok:'#16a34a',warn:'#d97706',crit:'#dc2626'};
+  hospitals.forEach((h,i)=>{
+    const color=isCrit&&i===0?'#dc2626':cm[h.available];
+    const el=document.createElement('div');
+    el.style.cssText=`background:${color};color:#fff;font-size:var(--fs-xs);font-weight:700;padding:4px 9px;border-radius:8px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;`;
+    el.textContent=`${i+1}. ${h.name.replace(/권역|응급의료센터/g,'').trim()}`;
+    const ov=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(h.lat,h.lng),content:el,yAnchor:1.4,zIndex:i===0?10:5});
+    ov.setMap(kakaoMap);overlays.push(ov);
+    el.addEventListener('click',()=>{
+      kakaoMap.setCenter(new kakao.maps.LatLng(h.lat,h.lng));
+      kakaoMap.setLevel(4);
+      // 마커 클릭 → 해당 병원 모달 열기
+      openRouteModal(i);
+    });
+  });
+}
+
+// ── 병원 리스트 렌더링 ────────────────────
+// 현재 선택된 병원 (경로 모달용)
+let selectedHosp = null;
+
+function renderHospList(hospitals,isCrit){
+  const rankClasses=['r1','r2','r3','r4','r5'];
+  const sl={ok:'여유',warn:'주의',crit:'포화'};
+  const bedClass={ok:'bed-ok',warn:'bed-warn',crit:'bed-crit'};
+
+  // 활성 프로파일의 기저질환 → 매칭 진료과 추출
+  const profile = (typeof getActiveProfile === 'function') ? getActiveProfile() : null;
+  const userConditions = profile?.conditions || [];
+  const patientSpecialty = (typeof getSpecialtyFromConditions === 'function')
+    ? getSpecialtyFromConditions(userConditions)
+    : null;
+  // 기존 병원 이름 추출
+  const regHospRaw = profile?.regular_hospital;
+  const regHospName = regHospRaw
+    ? (typeof regHospRaw==='object' ? regHospRaw.name||'' : String(regHospRaw))
+    : '';
+  const regHospKey = regHospName.replace(/병원|의원|센터/g,'').trim();
+
+  document.getElementById('hospList').innerHTML=hospitals.map((h,i)=>{
+    const specialties = h.specialties || [];
+    const isRegularHosp = regHospKey && h.name.includes(regHospKey);
+    const regularBadgeHtml = isRegularHosp
+      ? '<span style="display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;margin:2px 2px 0 0;background:#fef9c3;color:#854d0e;border:1px solid #fbbf24;font-weight:700;">⭐ 기존 진료 병원</span>'
+      : '';
+    const specialtyBadgesHtml = specialties.length > 0
+      ? specialties.map(sp => {
+          const isMatch = patientSpecialty && sp === patientSpecialty;
+          return `<span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;margin:2px 2px 0 0;background:${isMatch?'#E1F5EE':'#f0f0f0'};color:${isMatch?'#0F6E56':'#666'};border:1px solid ${isMatch?'#1D9E75':'#ddd'};font-weight:${isMatch?'600':'400'};">${isMatch?'✅ ':''}${sp}</span>`;
+        }).join('')
+      : '<span style="font-size:10px;color:#aaa;">특수과 정보 없음</span>';
+
+    return `
+    <div class="hosp-card${i===0?' rank-1':''}" onclick="openRouteModal(${i})">
+      <div class="hosp-rank ${rankClasses[i]}">${i+1}</div>
+      <div class="hosp-info">
+        <div class="hosp-name">${h.name}</div>
+        <div style="margin-top:4px;">${regularBadgeHtml}${specialtyBadgesHtml}</div>
+        <div class="hosp-meta">
+          <div class="hosp-meta-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8 2 4.5 5.5 4.5 9.5c0 5.25 7.5 12.5 7.5 12.5s7.5-7.25 7.5-12.5C19.5 5.5 16 2 12 2z"/></svg>
+            ${h.address||'주소 정보 없음'}
+          </div>
+          <div class="hosp-meta-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.27-.27.67-.36 1-.24 1.1.4 2.3.6 3.6.6.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.4 0-17-7.6-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.3.2 2.5.6 3.6.1.33.01.73-.24 1L6.6 10.8z"/></svg>
+            ${h.phone||'전화번호 없음'}
+          </div>
+          <div class="hosp-meta-item">🚗 거리: <strong style="color:var(--red);margin-left:3px;">${h.dist}km</strong></div>
+          <div class="hosp-meta-item">⏱️ 대기: <strong style="color:var(--amber);margin-left:3px;">${h.eta}분</strong></div>
+        </div>
+      </div>
+      <div class="hosp-right">
+        <div class="bed-badge ${bedClass[h.available]}">병상 ${h.availBeds}개</div>
+        <div class="score-bar"><div class="score-fill" style="width:${h.score}%"></div></div>
+        <div style="font-size:10px;color:var(--text-hint);margin-top:3px;text-align:right;">${!h.real?'시뮬레이션':''}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  window._currentHospitals = hospitals;  // 모달·마커 클릭에서 참조
+
+  // 데이터 출처 배지 업데이트
+  const nemcBadge = document.getElementById('nemc-status-badge');
+  const fbBadge   = document.getElementById('fallback-status-badge');
+  const subLabel  = document.getElementById('hospSubLabel');
+  const isReal = hospitals.some(h => h.real);
+  if(nemcBadge) nemcBadge.style.display = isReal ? 'inline-block' : 'none';
+  if(fbBadge)   fbBadge.style.display   = isReal ? 'none' : 'inline-block';
+  if(subLabel){
+    const cnt = hospitals.length;
+    subLabel.textContent = isReal
+      ? `실시간 응급실 ${cnt}개 — 국립중앙의료원 데이터`
+      : `카카오 검색 결과 ${cnt}개 (실시간 API 연결 중)`;
+  }
+}
+
+// ── 경로 모달 열기 ────────────────────────
+function openRouteModal(idx){
+  const h = window._currentHospitals?.[idx];
+  if(!h) return;
+  selectedHosp = h;
+
+  // 지도 이동
+  if(mapReady){
+    kakaoMap.setCenter(new kakao.maps.LatLng(parseFloat(h.lat), parseFloat(h.lng)));
+    kakaoMap.setLevel(4);
+  }
+
+  // 모달 기본 정보
+  document.getElementById('routeHospName').textContent = h.name;
+  document.getElementById('routeHospAddr').textContent = h.address||'주소 정보 없음';
+  document.getElementById('routeDist').textContent     = `📍 ${h.dist}km`;
+  document.getElementById('routeEta').textContent      = `⏱️ 약 ${h.eta}분`;
+  document.getElementById('routeBed').textContent      = `🏥 가용 ${h.availBeds}병상`;
+
+  // ── 병원 상세 패널 채우기 ──────────────────────
+  const specHtml = (h.specialties||[]).length
+    ? h.specialties.map(s=>`<span style="display:inline-block;padding:2px 8px;margin:2px 2px 0 0;background:#e0f2fe;color:#0369a1;border-radius:8px;font-size:11px;">${s}</span>`).join('')
+    : '<span style="color:#aaa;font-size:11px;">정보 없음</span>';
+
+  const bedStatus = {ok:'<span style="color:#16a34a;font-weight:600;">여유</span>',warn:'<span style="color:#d97706;font-weight:600;">보통</span>',crit:'<span style="color:#dc2626;font-weight:600;">포화</span>'}[h.available]||'—';
+
+  // 기존 병원 여부
+  const profile = (typeof getActiveProfile==='function') ? getActiveProfile() : null;
+  const regName = (() => {
+    const r = profile?.regular_hospital;
+    if(!r) return null;
+    return typeof r==='object' ? r.name : r;
+  })();
+  const isRegular = regName && h.name.includes(regName.replace(/병원|의원|센터/g,'').trim());
+  const regularBadge = isRegular ? '<span style="display:inline-block;padding:2px 8px;background:#fef9c3;color:#854d0e;border:1px solid #fbbf24;border-radius:8px;font-size:11px;font-weight:600;">⭐ 기존 진료 병원</span>' : '';
+
+  // 중증질환 수용가능 배지
+  const seriousHtml = (h.serious_accept||[]).length
+    ? h.serious_accept.slice(0,5).map(s=>`<span style="display:inline-block;padding:2px 7px;margin:2px 2px 0 0;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:8px;font-size:11px;">${s}</span>`).join('')
+    : '';
+
+  // 수술실/ICU 정보
+  const extraBeds = [];
+  if(h.surgeryBeds > 0) extraBeds.push(`🔪 수술실 ${h.surgeryBeds}개`);
+  if(h.icuBeds > 0)     extraBeds.push(`💊 중환자실 ${h.icuBeds}개`);
+
+  // 실시간 여부 + 업데이트 시각
+  const realtimeBadge = h.realtime
+    ? `<span style="font-size:10px;padding:1px 7px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;margin-left:6px;">● 실시간</span>`
+    : `<span style="font-size:10px;padding:1px 7px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:6px;margin-left:6px;">시뮬레이션</span>`;
+
+  document.getElementById('routeHospDetail').innerHTML = `
+    ${regularBadge ? '<div style="margin-bottom:6px;">'+regularBadge+'</div>' : ''}
+    <div style="margin-bottom:6px;"><strong>🏥 진료과:</strong> ${specHtml}</div>
+    ${seriousHtml ? `<div style="margin-bottom:6px;"><strong>⚠️ 중증 수용:</strong><br>${seriousHtml}</div>` : ''}
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-bottom:4px;">
+      <span>🛏️ 응급 <strong style="color:var(--red);">${h.availBeds}개</strong></span>
+      ${extraBeds.map(b=>`<span>${b}</span>`).join('')}
+      <span>📊 ${bedStatus}</span>
+    </div>
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;">
+      <span>📞 ${h.phone||'전화번호 없음'}</span>
+      ${h.er_type ? `<span style="font-size:10px;color:#7F77DD;">【${h.er_type}】</span>` : ''}
+      ${realtimeBadge}
+    </div>
+    ${h.updated_at ? `<div style="font-size:10px;color:#aaa;margin-top:4px;">업데이트: ${h.updated_at}</div>` : ''}
+  `;
+
+  document.getElementById('routeModal').classList.add('show');
+}
+
+function call119(){
+  closeRouteModal();
+  window.location.href = 'tel:119';
+}
+
+function closeRouteModal(){
+  document.getElementById('routeModal').classList.remove('show');
+}
+
+
+// 모달 배경 클릭 시 닫기
+document.getElementById('routeModal').addEventListener('click', e=>{
+  if(e.target.id==='routeModal') closeRouteModal();
+});
+
+// ── 경로 앱 연동 ──────────────────────────
+// 카카오맵 길찾기 URL로 연동 (모드별 분기)
+function openRoute(mode){
+  if(!selectedHosp){ showToast('병원 정보가 없습니다.'); return; }
+  const name = encodeURIComponent(selectedHosp.name);
+  const lat  = parseFloat(selectedHosp.lat);
+  const lng  = parseFloat(selectedHosp.lng);
+
+  // 카카오맵 길찾기 URL scheme
+  // https://apis.map.kakao.com/web/guide/#routeurl
+  const modeMap = {
+    car:     0,  // 자동차
+    taxi:    6,  // 택시 (카카오맵 = 자동차와 동일, 앱에서 택시 호출로 연결)
+    transit: 1,  // 대중교통
+    walk:    4,  // 도보
+  };
+  const rp = modeMap[mode] ?? 0;
+
+  // 출발지 좌표가 있으면 포함, 없으면 목적지만
+  let url;
+  if(userLat && userLng){
+    url = `https://map.kakao.com/link/from/현재위치,${userLat},${userLng}/to/${name},${lat},${lng}`;
+  } else {
+    url = `https://map.kakao.com/link/to/${name},${lat},${lng}`;
+  }
+
+  // 카카오맵 앱 딥링크 (모바일) / 웹 (PC)
+  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  if(isMobile){
+    // 카카오맵 앱 URL scheme 시도
+    const appUrl = `kakaomap://route?sp=${userLat},${userLng}&ep=${lat},${lng}&by=${['CAR','CAR','PUBLIC_TRANSPORTATION','CAR','FOOT'][rp]||'CAR'}`;
+    window.location.href = appUrl;
+    // 앱 없으면 웹으로 폴백
+    setTimeout(()=>{ window.open(url,'_blank'); }, 1500);
+  } else {
+    window.open(url, '_blank');
+  }
+  closeRouteModal();
+}
+
+// ── 현위치로 이동 ─────────────────────────
+function goMyLoc(){
+  if(!mapReady){ showToast('지도가 준비되지 않았습니다.'); return; }
+  if(userLat && userLng){
+    kakaoMap.setCenter(new kakao.maps.LatLng(userLat, userLng));
+    kakaoMap.setLevel(4);
+  } else {
+    showToast('위치 정보를 가져오는 중입니다.');
+  }
+}
+
+// ══════════════════════════════════════════
+//  카카오맵 초기화
+// ══════════════════════════════════════════
+function initMap(){
+  kakao.maps.load(function(){
+    kakaoMap=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(37.5665,126.9780),level:7});
+    kakaoMap.addControl(new kakao.maps.ZoomControl(),kakao.maps.ControlPosition.BOTTOMRIGHT);
+    mapReady=true;
+
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        p=>initLoc(p.coords.latitude,p.coords.longitude),
+        ()=>initLoc(37.5665,126.9780),
+        {enableHighAccuracy:true,timeout:10000,maximumAge:60000}
+      );
+    }else initLoc(37.5665,126.9780);
+  });
+}
+
+async function initLoc(lat,lng){
+  userLat=lat;userLng=lng;
+  kakaoMap.setCenter(new kakao.maps.LatLng(lat,lng));kakaoMap.setLevel(5);
+
+  // 사용자 위치 핀 (파란 원)
+  const myEl=document.createElement('div');
+  myEl.innerHTML=`<div style="position:relative;width:28px;height:28px;">
+    <div style="position:absolute;inset:0;border-radius:50%;background:rgba(25,118,210,.2);animation:upulse 2s infinite;"></div>
+    <div style="position:absolute;top:50%;left:50%;width:14px;height:14px;border-radius:50%;background:#1976d2;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(25,118,210,.5);transform:translate(-50%,-50%);"></div>
+  </div><style>@keyframes upulse{0%,100%{transform:scale(.8);opacity:.6}70%{transform:scale(2);opacity:0}}</style>`;
+  new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(lat,lng),content:myEl,zIndex:20}).setMap(kakaoMap);
+
+  document.getElementById('locCoord').textContent=`${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  new kakao.maps.services.Geocoder().coord2RegionCode(lng,lat,function(r,s){
+    if(s===kakao.maps.services.Status.OK){
+      const reg=r.find(x=>x.region_type==='H')||r[0];
+      document.getElementById('locName').textContent=reg?.address_name||'위치 확인됨';
+    }
+  });
+
+  // hospList에 로딩 메시지 표시
+  const hl = document.getElementById('hospList');
+  if(hl) hl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-hint);font-size:14px;">🔄 응급실 데이터 불러오는 중...</div>';
+  const sl = document.getElementById('hospSubLabel');
+  if(sl) sl.textContent = '데이터 로딩 중...';
+
+  showLoad('주변 응급실 데이터 불러오는 중...');
+  const emerData=await fetchEmer(lat,lng,null);
+  if(emerData?.length){
+    useReal=true; rawHospitals=emerData;
+    const init5=emerData.slice(0,5).map(h=>({...h,score:calcScore(h,null,null)}));
+    init5.sort((a,b)=>b.score-a.score);
+    window._currentHospitals=init5;          // ← 마커 클릭 전에 먼저 세팅
+    renderMarkers(init5,false);
+    renderHospList(init5,false);
+    // resultSection 항상 표시
+  } else {
+    kakaoFallback(lat,lng,null,fb=>{
+      useReal=false; rawHospitals=fb;
+      const init5=fb.slice(0,5).map(h=>({...h,score:calcScore(h,null,null)}));
+      init5.sort((a,b)=>b.score-a.score);
+      window._currentHospitals=init5;        // ← 마커 클릭 전에 먼저 세팅
+      renderMarkers(init5,false);
+      renderHospList(init5,false);
+      // resultSection 항상 표시
+    });
+  }
+  hideLoad();
+}
+
+// ── 유틸 ─────────────────────────────────
+// ══════════════════════════════════════════
+//  모바일 챗봇 드로어
+// ══════════════════════════════════════════
+function openChatDrawer(){
+  document.getElementById('chatPanel').classList.add('open');
+  document.getElementById('chatOverlay').classList.add('show');
+  document.getElementById('chatFabBadge').classList.remove('show');
+  document.getElementById('chatIn').focus();
+}
+function closeChatDrawer(){
+  document.getElementById('chatPanel').classList.remove('open');
+  document.getElementById('chatOverlay').classList.remove('show');
+}
+// 챗봇 응답 시 FAB 뱃지 표시 (드로어 닫혀있을 때만)
+function showFabBadge(){
+  const isMobile = window.innerWidth <= 768;
+  const isOpen   = document.getElementById('chatPanel').classList.contains('open');
+  if(isMobile && !isOpen){
+    document.getElementById('chatFabBadge').classList.add('show');
+  }
+}
+// 스와이프로 드로어 닫기 (터치)
+(function(){
+  let startY = 0;
+  const panel = document.getElementById('chatPanel');
+  if(!panel) return;
+  panel.addEventListener('touchstart', e=>{ startY = e.touches[0].clientY; }, {passive:true});
+  panel.addEventListener('touchend',   e=>{
+    const dy = e.changedTouches[0].clientY - startY;
+    if(dy > 80) closeChatDrawer(); // 80px 이상 아래로 스와이프 시 닫힘
+  }, {passive:true});
+})();
+
+function showLoad(txt){document.getElementById('loadingTxt').textContent=txt;document.getElementById('loading').classList.add('show');}
+function hideLoad(){document.getElementById('loading').classList.remove('show');}
+// ── 백엔드 헬스 체크 ─────────────────────
+async function checkBackendHealth(){
+  try{
+    const res = await fetch(`${BACKEND_URL}/health`, {signal: AbortSignal.timeout(5000)});
+    if(!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    const badge = document.getElementById('nemc-status-badge');
+    const fbBadge = document.getElementById('fallback-status-badge');
+    if(!data.nemc_ready){
+      // NEMC 키 없음 → 카카오 fallback 안내
+      if(fbBadge){ fbBadge.style.display='inline-block'; fbBadge.textContent='● NEMC 키 미설정'; }
+      console.warn('[NEMC] Railway 환경변수 NEMC_API_KEY 미설정. 카카오 장소검색으로 대체됩니다.');
+      console.info('[NEMC 설정 방법] Railway 대시보드 → Variables → NEMC_API_KEY 추가\n키 발급: https://www.data.go.kr (국립중앙의료원 응급의료정보 API)');
+    } else {
+      console.info('[NEMC] API 키 설정됨 ✅');
+    }
+    console.info(`[Backend] KTAS 항목 ${data.ktas_entries}개, NEMC 연동: ${data.nemc_ready}`);
+  }catch(e){
+    console.warn('[Backend] 헬스체크 실패:', e.message);
+  }
+}
+
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+// ── QR 코드 생성 엔진 (순수 JS, 외부 의존성 없음) ────────────
+// ── 순수 JS QR코드 생성기 (외부 라이브러리 없음) ──────────────
+// Reed-Solomon + QR Matrix 구현 (Version 1~10, ECC Level M)
+// 참고: ISO 18004 QR Code specification
+
+(function(global){
+'use strict';
+
+// ── GF(256) 갈로이 필드 ──────────────────
+const GF_EXP = new Uint8Array(512);
+const GF_LOG = new Uint8Array(256);
+(function(){
+  let x=1;
+  for(let i=0;i<255;i++){
+    GF_EXP[i]=x; GF_LOG[x]=i;
+    x<<=1; if(x&256)x^=285;
+  }
+  for(let i=255;i<512;i++) GF_EXP[i]=GF_EXP[i-255];
+})();
+const gfMul=(x,y)=>x&&y?GF_EXP[GF_LOG[x]+GF_LOG[y]]:0;
+const gfPoly=(ec)=>{
+  let g=[1];
+  for(let i=0;i<ec;i++){
+    const f=[1,GF_EXP[i]];
+    const r=new Array(g.length+1).fill(0);
+    for(let j=0;j<g.length;j++) for(let k=0;k<f.length;k++) r[j+k]^=gfMul(g[j],f[k]);
+    g=r;
+  }
+  return g;
+};
+const rsEncode=(data,ec)=>{
+  const gen=gfPoly(ec);
+  const msg=[...data,...new Array(ec).fill(0)];
+  for(let i=0;i<data.length;i++){
+    const c=msg[i];
+    if(c) for(let j=0;j<gen.length;j++) msg[i+j]^=gfMul(gen[j],c);
+  }
+  return msg.slice(data.length);
+};
+
+// ── Version / 정보 테이블 (ECC M) ────────
+// [version, total_codewords, data_codewords, ec_codewords_per_block, blocks_group1, blocks_group2]
+const VER_TABLE=[
+  null,
+  {v:1,size:21,data:16,ec:10,b1:1,b2:0,dc1:16,dc2:0},
+  {v:2,size:25,data:28,ec:16,b1:1,b2:0,dc1:28,dc2:0},
+  {v:3,size:29,data:44,ec:26,b1:1,b2:0,dc1:44,dc2:0},
+  {v:4,size:33,data:64,ec:18,b1:2,b2:0,dc1:32,dc2:0},
+  {v:5,size:37,data:86,ec:24,b1:2,b2:0,dc1:43,dc2:0},
+  {v:6,size:41,data:108,ec:16,b1:4,b2:0,dc1:27,dc2:0},
+  {v:7,size:45,data:124,ec:18,b1:4,b2:1,dc1:31,dc2:32},
+  {v:8,size:49,data:154,ec:22,b1:2,b2:4,dc1:38,dc2:39},
+  {v:9,size:53,data:182,ec:22,b1:3,b2:4,dc1:36,dc2:37},
+  {v:10,size:57,data:213,ec:26,b1:4,b2:2,dc1:43,dc2:44},
+];
+
+// 필요한 버전 선택
+function pickVersion(byteLen){
+  for(let i=1;i<=10;i++){
+    const t=VER_TABLE[i];
+    if(t && t.data>=byteLen+2) return t; // +2: mode indicator + length
+  }
+  return null;
+}
+
+// ── QR 매트릭스 그리기 ───────────────────
+function makeMatrix(n){ return Array.from({length:n},()=>new Array(n).fill(-1)); }
+
+function setFinder(m,r,c){
+  for(let dr=-1;dr<=7;dr++) for(let dc=-1;dc<=7;dc++){
+    const nr=r+dr,nc=c+dc;
+    if(nr<0||nr>=m.length||nc<0||nc>=m.length) continue;
+    const on=(dr>=0&&dr<=6&&(dc===0||dc===6))||(dc>=0&&dc<=6&&(dr===0||dr===6))||(dr>=2&&dr<=4&&dc>=2&&dc<=4)||dr===-1||dc===-1;
+    m[nr][nc]=on?1:0;
+  }
+}
+
+function setAlignment(m,centers){
+  for(const [r,c] of centers){
+    if(m[r][c]!==-1) continue;
+    for(let dr=-2;dr<=2;dr++) for(let dc=-2;dc<=2;dc++){
+      const on=dr===-2||dr===2||dc===-2||dc===2||(dr===0&&dc===0);
+      m[r+dr][c+dc]=on?1:0;
+    }
+  }
+}
+
+// alignment pattern 좌표 (version별)
+const ALIGN={1:[],2:[[6,18],[18,6],[18,18]],3:[[6,22],[22,6],[22,22]],
+  4:[[6,26],[26,6],[26,26]],5:[[6,30],[30,6],[30,30]],
+  6:[[6,34],[34,6],[34,34]],7:[[6,22],[6,38],[22,6],[22,22],[22,38],[38,6],[38,22],[38,38]],
+  8:[[6,24],[6,42],[24,6],[24,24],[24,42],[42,6],[42,24],[42,42]],
+  9:[[6,26],[6,46],[26,6],[26,26],[26,46],[46,6],[46,26],[46,46]],
+  10:[[6,28],[6,50],[28,6],[28,28],[28,50],[50,6],[50,28],[50,50]]};
+
+function setTiming(m,size){
+  for(let i=8;i<size-8;i++){
+    m[6][i]=m[i][6]=i%2===0?1:0;
+  }
+}
+
+function setFormatInfo(m,size,mask){
+  // Format info bits (ECC M, mask pattern)
+  const FORMAT_STRINGS=[
+    0x5412,0x5125,0x5E7C,0x5B4B,0x45F9,0x40CE,0x4F97,0x4AA0,
+    0x77C4,0x72F3,0x7DAA,0x789D,0x662F,0x6318,0x6C41,0x6976,
+    0x1689,0x13BE,0x1CE7,0x19D0,0x0762,0x0255,0x0D0C,0x083B,
+    0x355F,0x3068,0x3F31,0x3A06,0x24B4,0x2183,0x2EDA,0x2BED
+  ];
+  const fmt=FORMAT_STRINGS[mask]; // ECC M = 00, mask 0-7
+  const bits=[];
+  for(let i=14;i>=0;i--) bits.push((fmt>>i)&1);
+
+  const pos1=[[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]];
+  const pos2=[[size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8],[8,size-8],[8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1]];
+  for(let i=0;i<15;i++){
+    m[pos1[i][0]][pos1[i][1]]=bits[i];
+    m[pos2[i][0]][pos2[i][1]]=bits[i];
+  }
+  m[size-8][8]=1; // dark module
+}
+
+function isFunction(m,r,c){ return m[r][c]!==-1; }
+
+function placeData(m,size,data){
+  let idx=0,dir=-1,row=size-1;
+  for(let col=size-1;col>=1;col-=2){
+    if(col===6) col--;
+    for(let cnt=0;cnt<size;cnt++){
+      const r=dir===1?cnt:size-1-cnt;
+      for(let c=0;c<2;c++){
+        const cc=col-c;
+        if(!isFunction(m,r,cc)){
+          const bit=idx<data.length*8?(data[Math.floor(idx/8)]>>(7-(idx%8)))&1:0;
+          m[r][cc]=bit; idx++;
+        }
+      }
+    }
+    dir=-dir;
+  }
+}
+
+function applyMask(m,size,mask){
+  const cond=[
+    (r,c)=>(r+c)%2===0,
+    (r,c)=>r%2===0,
+    (r,c)=>c%3===0,
+    (r,c)=>(r+c)%3===0,
+    (r,c)=>(Math.floor(r/2)+Math.floor(c/3))%2===0,
+    (r,c)=>r*c%2+r*c%3===0,
+    (r,c)=>(r*c%2+r*c%3)%2===0,
+    (r,c)=>(r+c+r*c)%3===0,  // mask 7 — default used
+  ];
+  const fn=cond[mask];
+  for(let r=0;r<size;r++) for(let c=0;c<size;c++){
+    if(!isFunction(m,r,c)&&fn(r,c)) m[r][c]^=1;
+  }
+}
+
+// ── 메인 QR 생성 함수 ────────────────────
+function generateQR(text){
+  const enc=new TextEncoder();
+  const bytes=enc.encode(text);
+  const vt=pickVersion(bytes.length);
+  if(!vt) return null;
+
+  const {v,size,data:dataCW,ec:ecCW,b1,b2,dc1,dc2}=vt;
+
+  // 데이터 코드워드 준비
+  const modeLen=[
+    0x40,  // mode=byte: 0100
+    (bytes.length>>8)&0xFF,
+    bytes.length&0xFF,
+    ...bytes,
+    0xEC,0x11 // padding
+  ];
+  // 실제론 mode nibble + length 2nibble이지만 단순화
+  const raw=[((4<<4)|(bytes.length>>4))&0xFF,((bytes.length&0xF)<<4)&0xFF,...bytes,0];
+  const padded=new Uint8Array(dataCW).fill(0);
+  const stream=[];
+  // Byte mode encoding
+  let bits=[];
+  // mode indicator: 0100
+  bits.push(0,1,0,0);
+  // character count (8 bits for version 1-9)
+  for(let i=7;i>=0;i--) bits.push((bytes.length>>i)&1);
+  for(const b of bytes) for(let i=7;i>=0;i--) bits.push((b>>i)&1);
+  // terminator
+  for(let i=0;i<4&&bits.length<dataCW*8;i++) bits.push(0);
+  // pad to byte boundary
+  while(bits.length%8) bits.push(0);
+  // pad codewords
+  const PAD=[0xEC,0x11];
+  let pi=0;
+  while(bits.length<dataCW*8){ for(let i=7;i>=0;i--) bits.push((PAD[pi%2]>>i)&1); pi++; }
+
+  // bits → bytes
+  const dataBytes=[];
+  for(let i=0;i<bits.length;i+=8){
+    let b=0; for(let j=0;j<8;j++) b=(b<<1)|bits[i+j];
+    dataBytes.push(b);
+  }
+
+  // RS error correction
+  const blocks=[];
+  let off=0;
+  for(let i=0;i<b1;i++){
+    const d=dataBytes.slice(off,off+dc1);
+    blocks.push({d,e:rsEncode(d,ecCW)}); off+=dc1;
+  }
+  for(let i=0;i<b2;i++){
+    const d=dataBytes.slice(off,off+dc2);
+    blocks.push({d,e:rsEncode(d,ecCW)}); off+=dc2;
+  }
+
+  // Interleave
+  const final=[];
+  const maxDC=Math.max(dc1,dc2||0);
+  for(let i=0;i<maxDC;i++) for(const bl of blocks) if(i<bl.d.length) final.push(bl.d[i]);
+  for(let i=0;i<ecCW;i++) for(const bl of blocks) final.push(bl.e[i]);
+
+  // Build matrix
+  const m=makeMatrix(size);
+  setFinder(m,0,0); setFinder(m,size-7,0); setFinder(m,0,size-7);
+  setAlignment(m,ALIGN[v]||[]);
+  setTiming(m,size);
+  m[size-8][8]=0; // dark module placeholder
+  // format info placeholder
+  const fmtPos=[[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],
+    [size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8],[8,size-8],[8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1]];
+  for(const [r,c] of fmtPos) m[r][c]=0;
+
+  placeData(m,size,final);
+
+  // mask 3 is stable for most data
+  const MASK=3;
+  applyMask(m,size,MASK);
+  setFormatInfo(m,size,MASK);
+
+  return {matrix:m,size};
+}
+
+// ── Canvas 렌더링 ─────────────────────────
+function renderQR(canvasEl,text,cellSize=4){
+  const qr=generateQR(text);
+  if(!qr){ canvasEl.width=canvasEl.height=200; const ctx=canvasEl.getContext('2d'); ctx.fillStyle='#888'; ctx.font='12px sans-serif'; ctx.fillText('QR 생성 불가 (텍스트 너무 김)',10,100); return; }
+  const {matrix,size}=qr;
+  const quiet=4;
+  const total=(size+quiet*2)*cellSize;
+  canvasEl.width=canvasEl.height=total;
+  const ctx=canvasEl.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,total,total);
+  ctx.fillStyle='#1a1a1a';
+  for(let r=0;r<size;r++) for(let c=0;c<size;c++){
+    if(matrix[r][c]===1) ctx.fillRect((c+quiet)*cellSize,(r+quiet)*cellSize,cellSize,cellSize);
+  }
+}
+
+global.QRGen={generateQR,renderQR};
+})(window);
+
+
+// ── QR 의료정보 모달 ──────────────────────────────────────────
+function buildQrData(){
+  const profile = (typeof getActiveProfile==='function') ? getActiveProfile() : null;
+  // 프로필 없어도 기본 QR 생성 (이름 미상으로 처리)
+  const vitals = (typeof currentVitals!=='undefined') ? currentVitals : {};
+  return {
+    name:       profile.name || '미상',
+    age:        profile.age  || '미상',
+    gender:     profile.gender || '미상',
+    blood_type: profile.blood_type || '미상',
+    conditions: (profile.conditions||[]).join(', ') || '없음',
+    medications:(profile.medications||[]).join(', ') || '없음',
+    allergies:  (profile.allergies||[]).join(', ') || '없음',
+    hospital:   (() => {
+      const r = profile.regular_hospital;
+      if(!r) return '없음';
+      return typeof r==='object' ? `${r.name||''} ${r.department||''}`.trim() : r;
+    })(),
+    hr:    vitals.hr   || '--',
+    spo2:  vitals.spo2 || '--',
+    bp:    (vitals.bp_sys&&vitals.bp_dia) ? `${vitals.bp_sys}/${vitals.bp_dia}` : '--',
+    ts:    new Date().toLocaleString('ko-KR')
+  };
+}
+
+function openQrModal(){
+  const profile = (typeof getActiveProfile==='function') ? getActiveProfile() : null;
+  const vitals = (typeof currentVitals!=='undefined') ? currentVitals : {};
+  const data = {
+    name:       profile?.name       || '미상',
+    age:        profile?.age        || '미상',
+    gender:     profile?.gender     || '미상',
+    blood_type: profile?.blood_type || '미상',
+    conditions: (profile?.conditions||[]).join(', ') || '없음',
+    medications:(profile?.medications||[]).join(', ') || '없음',
+    allergies:  (profile?.allergies||[]).join(', ') || '없음',
+    hospital: (()=>{
+      const r=profile?.regular_hospital;
+      if(!r) return '없음';
+      return typeof r==='object'?`${r.name||''} ${r.department||''}`.trim():r;
+    })(),
+    hr:   vitals.hr   || '--',
+    spo2: vitals.spo2 || '--',
+    bp:   (vitals.bp_sys&&vitals.bp_dia)?`${vitals.bp_sys}/${vitals.bp_dia}`:'--',
+    ts:   new Date().toLocaleString('ko-KR')
+  };
+
+  // QR 텍스트: 핵심 정보만 압축 (Version 10 한계 ~213바이트)
+  // 영문 필드명으로 단축해 바이트 절약
+  const qrLines = [
+    `[ER INFO] ${data.name}/${data.age}/${data.gender}`,
+    `BT:${data.blood_type}`,
+    data.conditions!=='없음' ? `DX:${data.conditions}` : '',
+    data.medications!=='없음' ? `Rx:${data.medications}` : '',
+    data.allergies!=='없음'   ? `ALG:${data.allergies}`  : '',
+    data.hospital!=='없음'    ? `HOSP:${data.hospital}`  : '',
+    `HR:${data.hr} SpO2:${data.spo2} BP:${data.bp}`,
+  ].filter(Boolean);
+  const qrText = qrLines.join('|');
+  // 210바이트 초과 시 잘라내기
+  const qrTextFinal = qrText.length > 210 ? qrText.slice(0, 207) + '...' : qrText;
+
+  // 정보 리스트 먼저 채우기
+  document.getElementById('qrInfoList').innerHTML = [
+    `👤 ${data.name} · ${data.age}세 · ${data.gender}`,
+    `🩸 혈액형: ${data.blood_type}`,
+    `🏥 기저질환: ${data.conditions}`,
+    `💊 복용약: ${data.medications}`,
+    `⚠️ 알레르기: ${data.allergies}`,
+    `🏨 정기병원: ${data.hospital}`,
+    `❤️ 심박: ${data.hr}bpm · SpO2: ${data.spo2}% · 혈압: ${data.bp}`
+  ].map(l=>`<div>${l}</div>`).join('');
+
+  // QR 생성: 순수 JS Canvas (외부 API 없음)
+  const canvas = document.getElementById('qrCanvas');
+  if(typeof QRGen !== 'undefined'){
+    QRGen.renderQR(canvas, qrTextFinal, 4);
+  } else {
+    // fallback: 텍스트로만 표시
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.height = 200;
+    ctx.fillStyle = '#f3f4f6';
+    ctx.fillRect(0,0,200,200);
+    ctx.fillStyle = '#374151';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('QR 엔진 로드 중...', 100, 100);
+  }
+
+  document.getElementById('qrModal').classList.add('show');
+}
+
+function closeQrModal(){
+  document.getElementById('qrModal').classList.remove('show');
+}
+
+// QR 모달 배경 닫기 → DOMContentLoaded에 통합됨
+
+
+function updateAppHeight(){
+  const app = document.querySelector('.app');
+  if(!app) return;
+  const top = app.getBoundingClientRect().top;
+  app.style.height = `${Math.max(320, window.innerHeight - top)}px`;
+}
+window.addEventListener('resize', updateAppHeight);
+requestAnimationFrame(updateAppHeight);
+
+// ── 카카오맵 SDK 로드 ─────────────────────
+(function(){
+  const s=document.createElement('script');
+  s.src=`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&libraries=services&autoload=false`;
+  s.onload=()=>{if(typeof kakao==='undefined'){document.getElementById('locName').textContent='카카오 SDK 로드 실패';return;}initMap();};
+  s.onerror=()=>{document.getElementById('locName').textContent='지도 로드 실패 — 도메인 등록 확인';document.getElementById('locCoord').textContent='카카오 콘솔 → 플랫폼 → Web 도메인 등록 필요';};
+  document.head.appendChild(s);
+})();
+</script>
+
+<!-- 사용자 프로파일 모달 -->
+<div id="profile-modal" style="
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+">
+  <div style="
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    width: 90%;
+    max-width: 400px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  ">
+    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 4px;" id="modal-title">건강 프로파일 입력</h3>
+    <p style="font-size: 12px; color: #888; margin-bottom: 12px;">한 번 저장하면 이후 자동으로 적용됩니다.</p>
+
+    <!-- Twin 프로파일 연동 바 -->
+    <div id="sync-bar" style="
+      display: flex; align-items: center; justify-content: space-between;
+      background: #f5f3ff; border: 1px dashed #a78bfa;
+      border-radius: 10px; padding: 9px 14px; margin-bottom: 14px;
+    ">
+      <div>
+        <div style="font-size: 12px; font-weight: 600; color: #5b21b6;">Twin 프로파일 연동</div>
+        <div style="font-size: 11px; color: #7c3aed;" id="sync-bar-sub">김순자 프로파일을 자동으로 불러옵니다</div>
+      </div>
+      <button id="sync-btn" onclick="syncFromJSON()" style="
+        padding: 6px 14px; border: none; border-radius: 8px;
+        background: #7F77DD; color: #fff;
+        font-size: 12px; font-weight: 600; cursor: pointer;
+        white-space: nowrap; transition: background 0.2s;
+      ">연동하기</button>
+    </div>
+
+    <div style="margin-bottom: 10px;">
+      <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">이름 (구분용)</label>
+      <input type="text" id="modal-username" placeholder="예: 홍길동"
+        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+      <div>
+        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">나이</label>
+        <input type="number" id="modal-age" placeholder="예: 67" min="0" max="120"
+          style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+      </div>
+      <div>
+        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">성별</label>
+        <select id="modal-gender"
+          style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+          <option value="">선택</option>
+          <option value="남">남</option>
+          <option value="여">여</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 10px;">
+      <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">기저질환 (쉼표로 구분)</label>
+      <input type="text" id="modal-conditions" placeholder="예: 고혈압, 당뇨, 관상동맥질환"
+        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+    </div>
+
+    <div style="margin-bottom: 10px;">
+      <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">복용 중인 약 (쉼표로 구분)</label>
+      <input type="text" id="modal-medications" placeholder="예: 아스피린 100mg, 메트포르민"
+        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+    </div>
+
+    <div style="margin-bottom: 10px;">
+      <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">알레르기 (쉼표로 구분)</label>
+      <input type="text" id="modal-allergies" placeholder="예: 페니실린, 조영제"
+        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">기존에 다니던 병원</label>
+      <input type="text" id="modal-hospital" placeholder="예: 세브란스병원 심장내과"
+        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+      <button onclick="saveProfileFromModal()" style="
+        flex: 1; padding: 10px;
+        background: #7F77DD; color: #fff;
+        border: none; border-radius: 8px;
+        font-size: 13px; font-weight: 500; cursor: pointer;
+      ">저장</button>
+      <button onclick="closeProfileModal()" style="
+        flex: 1; padding: 10px;
+        background: transparent; color: #666;
+        border: 1px solid #ddd; border-radius: 8px;
+        font-size: 13px; cursor: pointer;
+      ">취소</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
