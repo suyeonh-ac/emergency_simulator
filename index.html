@@ -2544,24 +2544,23 @@ async function initLoc(lat,lng){
     useReal=true; rawHospitals=emerData;
     const init5=emerData.slice(0,5).map(h=>({...h,score:calcScore(h,null,null)}));
     init5.sort((a,b)=>b.score-a.score);
-    window._currentHospitals=init5;          // ← 마커 클릭 전에 먼저 세팅
+    window._currentHospitals=init5;
     renderMarkers(init5,false);
     renderHospList(init5,false);
     renderBestHospCard(init5,false);
-    // resultSection 항상 표시
+    hideLoad();
   } else {
     kakaoFallback(lat,lng,null,fb=>{
       useReal=false; rawHospitals=fb;
       const init5=fb.slice(0,5).map(h=>({...h,score:calcScore(h,null,null)}));
       init5.sort((a,b)=>b.score-a.score);
-      window._currentHospitals=init5;        // ← 마커 클릭 전에 먼저 세팅
+      window._currentHospitals=init5;
       renderMarkers(init5,false);
       renderHospList(init5,false);
       renderBestHospCard(init5,false);
-      // resultSection 항상 표시
+      hideLoad();
     });
   }
-  hideLoad();
 }
 
 // ── 유틸 ─────────────────────────────────
