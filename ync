@@ -1,0 +1,35 @@
+[33m7c47bf1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add uv environment setup
+[33m88d8738[m fix: 모바일 접근성 패널 위치 프로필 바 아래로 수정
+[33m2ff0518[m fix: QR 외부 API 제거 → 순수 JS Canvas 렌더링으로 교체
+[33m419c2bf[m feat: NEMC API 3개 엔드포인트 통합 (위치+실시간병상+중증수용)
+[33m4d0b51a[m fix: 병원클릭 모달, QR코드, 패닉카드 실데이터, 카카오fallback 특수과
+[33m0e682d8[m fix: 병원클릭 모달, QR생성, 패닉병원 실데이터, 프로필UI 개선
+[33m00c2738[m feat: 기존병원 우선추천, QR의료정보, 마커클릭 상세정보, 119버튼
+[33m29a2817[m fix: 입력창 레이아웃, 프로파일 toast, API timeout 추가
+[33m7743ffc[m v2 업데이트 - 다중사용자/NEMC/GPT추천 등
+[33m3a08682[m 파일 업데이트
+[33md35ba41[m feat: CLOVA STT 프록시 /stt 라우트 추가
+[33mcd05432[m typing 버블 재사용 오류 수정
+[33m4ec84bd[m CORS 도메인 명시, level/ktas 필드 호환 처리
+[33m238eef8[m classify 응답 파싱 방어 코드 추가
+[33mb419740[m 챗봇 API /gpt → /classify 연동, 팀원 멀티턴 구조 적용
+[33med4b662[m requirements 패키지 추가, RAILPACK 빌더 설정
+[33m8c14c9b[m Update server.py
+[33mac54bdf[m RAILPACK 빌더로 변경
+[33ma8d7654[m nixpacks pip 설치 방식 수정
+[33ma2591c0[m 배포 설정 강제 재추가
+[33m013cedd[m Python 환경 명시 설정
+[33m61bb86e[m 모바일 입력 시 자동 줌 방지
+[33ma6731a0[m 모바일 반응형 - 챗봇 드로어 FAB 버튼
+[33me1aba62[m python3로 수정
+[33mbd1548c[m Railway 백엔드 연결
+[33mb81fe0d[m Railway 배포 설정 추가
+[33mac7df76[m 대기시간 계산 버그 수정 - 시속 30km 기준으로 교체
+[33m33de951[m 글씨 크기 상향, 챗봇 라벨 고정, 버튼 테두리 강화
+[33md339ead[m 현위치 버튼, 병원 경로 모달, 19세 이하 소아과 자동 설정
+[33mfcf7611[m 119 시계 게이지 시각화, 응급실 리스트 조회 버그 수정
+[33m850ac68[m 접근성 버튼 우측 고정 플로팅 패널로 이동
+[33ma0bc087[m 지도 확대, 119 링 시각화, 챗봇 다중 질문 개선
+[33m80994d9[m UI 전면 개편 - 스크롤 레이아웃, 119 버튼, 챗봇 좌측 고정
+[33me8c07d6[m update index.html
+[33me7086f6[m initial commit
