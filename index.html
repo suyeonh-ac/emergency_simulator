@@ -2315,11 +2315,35 @@ function calcScore(h,ktas,dept){
   // 기존 병원 매칭 여부를 병원 객체에 표시 (카드 UI에서 활용)
   h._isRegularHosp = isRegularHosp;
 
-  // ── KTAS 1~2: 거리+병상만, 기존 병원 완전 무시 ───────────
+  // ── 전문과 필수 여부 판단 ───────────────────────────────────
+  // 심정지/의식불명/외상/일반응급 → 어디서나 처치 가능 (최근접 우선)
+  // 산부인과/소아과/안과/정신건강 → 전문과 없으면 사실상 수용 불가
+  const GENERIC_DEPTS  = new Set(['general','cardiac','neuro','trauma','internal']);
+  const SPECIALTY_REQUIRED = new Set(['ob','peds','opth','psych']);
+  const needsSpecialty = dept && SPECIALTY_REQUIRED.has(dept);
+  const isGeneric      = !dept || GENERIC_DEPTS.has(dept);
+
+  // ── KTAS 1~2 ────────────────────────────────────────────────
   if(!ktas || ktas <= 2){
     const dist = parseFloat(h.dist);
-    const bedBonus = h.available==='ok' ? 8 : h.available==='crit' ? -15 : 0;
-    return Math.max(10, Math.round(100 - dist*8 - h.eta*.5 + bedBonus));
+    const bedBonus = h.available==='ok' ? 8 : h.available==='crit' ? -20 : 0;
+
+    if(isGeneric){
+      // 심정지·의식불명·외상 등 → 순수 거리+병상 우선
+      return Math.max(10, Math.round(100 - dist*8 - h.eta*.5 + bedBonus));
+    } else {
+      // 산부인과·소아과·안과 등 특수과 필요 → 전문과 보유 여부가 핵심
+      let s = 100;
+      s -= dist * 4;           // 거리 패널티 (완화: KTAS 3~5와 동일 수준)
+      s -= h.eta * 0.8;
+      s += bedBonus;
+      // 전문과 보유 시 강력 가산 (+50), 미보유 시 대폭 감점 (-40)
+      if(h.depts?.[dept]) s += 50;
+      else                s -= 40;
+      // 기존 병원 + forceCritical 체크된 경우 보너스
+      s += regularBonus;
+      return Math.max(5, Math.min(99, Math.round(s)));
+    }
   }
 
   // ── KTAS 3: 전문과 최우선, 기존 병원 소폭 ────────────────
@@ -2330,7 +2354,8 @@ function calcScore(h,ktas,dept){
     s -= Math.max(0, h.occupancy-40) * .5;
     if(h.available==='crit') s -= 18;
     if(h.available==='ok')   s += 5;
-    if(dept && dept!=='general' && h.depts?.[dept]) s += 25; // 전문과 가중 높음
+    if(dept && dept!=='general' && h.depts?.[dept]) s += 30;
+    else if(needsSpecialty && !h.depts?.[dept])     s -= 25; // 전문과 필요한데 없으면 감점
     s += regularBonus;
     s += Math.random()*3-1.5;
     return Math.max(10, Math.min(99, Math.round(s)));
@@ -2343,8 +2368,9 @@ function calcScore(h,ktas,dept){
   s -= Math.max(0, h.occupancy-40) * .3;
   if(h.available==='crit') s -= 10;
   if(h.available==='ok')   s += 5;
-  if(dept && dept!=='general' && h.depts?.[dept]) s += 15;
-  s += regularBonus; // KTAS 4: +25, KTAS 5: +35
+  if(dept && dept!=='general' && h.depts?.[dept]) s += 20;
+  else if(needsSpecialty && !h.depts?.[dept])     s -= 20;
+  s += regularBonus;
   s += Math.random()*3-1.5;
   return Math.max(10, Math.min(99, Math.round(s)));
 }
@@ -2577,8 +2603,22 @@ function renderBestHospCard(hospitals, isCrit) {
     const bonus = bonusMap[ktasNow] || 15;
     reasons.push(`⭐ 기존 진료 병원 우선 추천 (가중치 +${bonus}점)`);
   }
+  const SPECIALTY_REQ = new Set(['ob','peds','opth','psych']);
+  const needsSpec = detDept && SPECIALTY_REQ.has(detDept);
+
   if (isCrit) {
-    reasons.push('🚨 KTAS 1~2 — 최근접 응급실 즉시 이동 (기존 병원 무관)');
+    if (needsSpec) {
+      // 산부인과·소아과 등 — 전문과 보유 여부 표시
+      const hasSpec = (h.specialties||[]).some(s => s.includes(
+        {ob:'산부인과',peds:'소아과',opth:'안과',psych:'정신'}[detDept]||''
+      ));
+      reasons.push(hasSpec
+        ? `🚨 KTAS 1~2 + ${DEPT_MAP[detDept]?.label} 보유 병원 우선 추천`
+        : `⚠️ KTAS 1~2 — 주변 ${DEPT_MAP[detDept]?.label} 보유 병원 없음, 최근접 추천`
+      );
+    } else {
+      reasons.push('🚨 KTAS 1~2 (심정지/외상 등) — 최근접 응급실 즉시 이동');
+    }
   } else {
     if (specialty && (h.specialties||[]).some(s => s.includes(specialty.replace(/과$/,'')))) {
       reasons.push(`✅ ${specialty} 전문과 보유 (기저질환 매칭)`);
