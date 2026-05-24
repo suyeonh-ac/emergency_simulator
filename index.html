@@ -1708,17 +1708,14 @@ function searchHospitalKakao(query) {
 
       const items = hospitals.length ? hospitals : data.slice(0, 6);
 
-      dropdown.innerHTML = items.map((p, i) => `
-        <div onclick="selectHospital(${i})"
-          data-idx="${i}"
-          style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background .15s;"
-          onmouseover="this.style.background='#f5f3ff'"
-          onmouseout="this.style.background='#fff'">
-          <div style="font-size:13px;font-weight:600;color:#1a1a1a;">${p.place_name}</div>
-          <div style="font-size:11px;color:#888;margin-top:1px;">${p.address_name}</div>
-          ${p.phone ? `<div style="font-size:11px;color:#7F77DD;">${p.phone}</div>` : ''}
-        </div>
-      `).join('');
+      dropdown.innerHTML = items.map((p, i) => {
+        const phone = p.phone ? '<div style="font-size:11px;color:#7F77DD;">' + p.phone + '</div>' : '';
+        return '<div onclick="selectHospital(' + i + ')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background .15s;" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='#fff'">'
+          + '<div style="font-size:13px;font-weight:600;color:#1a1a1a;">' + p.place_name + '</div>'
+          + '<div style="font-size:11px;color:#888;margin-top:1px;">' + p.address_name + '</div>'
+          + phone
+          + '</div>';
+      }).join('');
 
       // 검색 결과 데이터 임시 저장
       window._hospitalSearchResults = items;
