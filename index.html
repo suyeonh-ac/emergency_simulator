@@ -1303,19 +1303,7 @@ async function sendChat(){
     document.getElementById('ktasBadge').textContent=`KTAS ${level} · ${kl[level]}`;
     document.getElementById('ktasBadge').style.cssText=`background:${kc[level]}20;color:${kc[level]};border:1px solid ${kc[level]}40;padding:3px 14px;border-radius:99px;font-size:var(--fs-sm);font-weight:700;`;
     document.getElementById('ktasDept').textContent=deptLabel;
-    // reason_steps 단계별 근거 표시
-    const steps = result.reason_steps || [];
-    const ktasReasonEl = document.getElementById('ktasReason');
-    if(steps.length > 0){
-      ktasReasonEl.innerHTML = steps.map((s, i) =>
-        `<span style="display:block;padding:2px 0;">
-          <span style="color:${['#7F77DD','#d97706','#16a34a'][i]||'#888'};font-weight:600;">${i+1}단계</span>
-          <span style="color:var(--text-sub)"> ${s}</span>
-        </span>`
-      ).join('');
-    } else {
-      ktasReasonEl.textContent = reason;
-    }
+    document.getElementById('ktasReason').textContent=reason;
 
     const specialtyText = result.specialty
       ? `<br><span style="color:#7F77DD;font-size:var(--fs-xs);">🏥 필요 진료과: ${result.specialty}</span>`
@@ -1332,17 +1320,10 @@ async function sendChat(){
       ? `<br><span style="color:#666;font-size:var(--fs-xs);">📋 병원 선택 근거: ${result.hospital_priority}</span>`
       : '';
 
-    // 단계별 근거 버블 텍스트
-    const stepsHtml = (result.reason_steps||[]).length > 0
-      ? '<br>' + result.reason_steps.map((s,i)=>
-          `<span style="display:block;font-size:var(--fs-xs);color:var(--text-sub);padding-left:8px;border-left:2px solid ${['#7F77DD','#d97706','#16a34a'][i]||'#ccc'};margin:2px 0;">${s}</span>`
-        ).join('')
-      : `<br><span style="color:var(--text-hint);font-size:var(--fs-xs);">${reason}</span>`;
-
     appendBubble(
       `<strong>KTAS ${level}</strong> · ${kl[level]}<br>` +
-      stepsHtml +
-      (cc ? `<br><span style="color:#1d4ed8;font-size:var(--fs-xs);">주호소: ${cc}</span>` : '') +
+      `<span style="color:var(--text-hint);font-size:var(--fs-xs);">${reason}</span><br>` +
+      (cc ? `<span style="color:#1d4ed8;font-size:var(--fs-xs);">주호소: ${cc}</span>` : '') +
       specialtyText +
       specialtyMatchBadge +
       priorityText +
@@ -1747,6 +1728,7 @@ async function loadHealthConnect() {
   try {
     // Capacitor 환경인지 확인 (웹 브라우저에서는 동작 안 함)
     if (!window.Capacitor || !window.Capacitor.isNativePlatform()) {
+      console.log('[HealthConnect] 웹 환경 - Health Connect 건너뜀');
       return;
     }
 
@@ -1817,6 +1799,7 @@ async function loadHealthConnect() {
     currentVitals.source = 'health_connect';
     updateVitalsUI();
     checkVitalAlerts(currentVitals.hr, currentVitals.spo2, currentVitals.bp_sys);
+    console.log('[HealthConnect] 바이탈 로드 완료:', currentVitals);
 
     // 소스 배지 업데이트
     const badge = document.getElementById('vitals-source-badge');
@@ -2140,6 +2123,10 @@ async function fetchEmer(lat,lng,deptKey){
     return hospitals;
   }catch(e){
     console.warn('[NEMC backend] 실패:', e.message);
+    console.info('[NEMC] 원인 진단:', {
+      url: `${BACKEND_URL}/hospitals`,
+      hint: 'Railway 환경변수 NEMC_API_KEY 확인 → /health 엔드포인트에서 nemc_ready 확인'
+    });
     return null;
   }
 }
@@ -2431,6 +2418,7 @@ function initMap(){
           });
           initLoc(pos.coords.latitude, pos.coords.longitude);
         } else {
+          console.warn('[위치] 권한 거부 → 기본 좌표(서울시청) 사용');
           initLoc(37.5665, 126.9780);
         }
       }catch(e){
@@ -2548,8 +2536,11 @@ async function checkBackendHealth(){
       // NEMC 키 없음 → 카카오 fallback 안내
       if(fbBadge){ fbBadge.style.display='inline-block'; fbBadge.textContent='● NEMC 키 미설정'; }
       console.warn('[NEMC] Railway 환경변수 NEMC_API_KEY 미설정. 카카오 장소검색으로 대체됩니다.');
+      console.info('[NEMC 설정 방법] Railway 대시보드 → Variables → NEMC_API_KEY 추가\n키 발급: https://www.data.go.kr (국립중앙의료원 응급의료정보 API)');
     } else {
+      console.info('[NEMC] API 키 설정됨 ✅');
     }
+    console.info(`[Backend] KTAS 항목 ${data.ktas_entries}개, NEMC 연동: ${data.nemc_ready}`);
   }catch(e){
     console.warn('[Backend] 헬스체크 실패:', e.message);
   }
