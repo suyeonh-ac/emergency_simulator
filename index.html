@@ -8,6 +8,8 @@
 <!-- Pretendard 폰트 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Capacitor (네이티브 앱 환경에서 플러그인 활성화) -->
+<script src="capacitor.js"></script>
 <!-- QRCode.js는 openQrModal에서 동적 로드 -->
 <style>
 :root {
@@ -1110,6 +1112,20 @@ async function toggleVoice(){if(isRecording){stopRecording();}else{await startRe
 
 async function startRecording(){
   if(!navigator.mediaDevices?.getUserMedia){appendBubble('마이크를 지원하지 않는 브라우저입니다.','voice-info');return;}
+
+  // Capacitor 앱 환경: 마이크 런타임 권한 먼저 요청
+  if(window.Capacitor && window.Capacitor.isNativePlatform()){
+    try{
+      // getUserMedia 자체가 Android에서 권한 다이얼로그를 트리거함
+      // 단, 권한이 거부된 상태면 catch로 떨어짐
+      const testStream = await navigator.mediaDevices.getUserMedia({audio:true});
+      testStream.getTracks().forEach(t=>t.stop()); // 테스트 스트림 즉시 해제
+    }catch(e){
+      appendBubble('🎤 마이크 권한이 필요합니다. 설정 → 앱 → 응급실 추천 → 권한에서 마이크를 허용해 주세요.','voice-info');
+      return;
+    }
+  }
+
   let stream;
   try{stream=await navigator.mediaDevices.getUserMedia({audio:true});}
   catch(e){appendBubble('마이크 권한이 없어 브라우저 음성인식으로 전환합니다.','voice-info');startWebSpeech();return;}
@@ -1527,20 +1543,27 @@ function syncFromJSON() {
   const btn = document.getElementById('sync-btn');
   const sub = document.getElementById('sync-bar-sub');
 
-  // JSON 데이터를 직접 embed (fetch 불필요 — file://, GitHub Pages 모두 작동)
-  const p = {
-    "name": "김순자",
-    "age": 72,
-    "gender": "여",
-    "conditions": ["고혈압", "제2형 당뇨", "만성신장질환"],
-    "medications": ["암로디핀 5mg", "메트포르민 500mg", "아스피린 100mg"],
-    "allergies": ["이부프로펜", "조영제"],
-    "regular_hospital": {
-      "name": "서울대학교병원",
-      "department": "신장내과"
-    }
-  };
+  // ktas_data.json에서 twin 파일 로드 시도
+  // 실제 twin 파일이 없으면 빈 폼으로 열기 (하드코딩 제거)
+  fetch('ktas_data.json')
+    .then(r => r.json())
+    .then(data => {
+      // twin 키가 있으면 사용, 없으면 빈 폼
+      const p = data.twin || null;
+      if(!p){
+        if(sub){ sub.textContent = '프로파일을 직접 입력해 주세요'; sub.style.color = '#888'; }
+        return;
+      }
+      _applyTwinProfile(p, btn, sub);
+    })
+    .catch(() => {
+      // fetch 실패 시 빈 폼으로 — 하드코딩 데이터 사용 안 함
+      if(sub){ sub.textContent = '직접 입력해 주세요'; sub.style.color = '#888'; }
+      if(btn){ btn.textContent = '연동하기'; btn.style.background = '#7F77DD'; }
+    });
+}
 
+function _applyTwinProfile(p, btn, sub) {
   document.getElementById('modal-username').value    = p.name || '';
   document.getElementById('modal-age').value         = p.age  || '';
   document.getElementById('modal-gender').value      = p.gender || '';
@@ -1569,7 +1592,7 @@ function syncFromJSON() {
       btn.style.background = '#7F77DD';
     }
     if (sub) {
-      sub.textContent = '김순자 프로파일을 자동으로 불러옵니다';
+      sub.textContent = '저장된 Twin 프로파일을 불러옵니다';
       sub.style.color = '#7c3aed';
     }
   }, 3000);
@@ -1697,6 +1720,100 @@ ${alerts.map(a => `• ${a}`).join('<br>')}<br><br>
     `, 'crit');
   }
 }
+
+// ══════════════════════════════════════════
+//  Health Connect 연동 (Android 앱 전용)
+// ══════════════════════════════════════════
+async function loadHealthConnect() {
+  try {
+    // Capacitor 환경인지 확인 (웹 브라우저에서는 동작 안 함)
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) {
+      console.log('[HealthConnect] 웹 환경 - Health Connect 건너뜀');
+      return;
+    }
+
+    const { HealthConnect } = await import('capacitor-health-connect');
+
+    // 권한 요청
+    const granted = await HealthConnect.requestHealthPermissions({
+      read: [
+        'HeartRate',
+        'OxygenSaturation',
+        'BloodPressure',
+        'BodyTemperature',
+        'BloodGlucose',
+        'Steps',
+      ],
+    });
+
+    if (!granted) {
+      console.warn('[HealthConnect] 권한 거부됨');
+      return;
+    }
+
+    // 최근 24시간 데이터 조회
+    const now = new Date();
+    const yesterday = new Date(now - 24 * 60 * 60 * 1000);
+    const timeSpec = {
+      startTime: yesterday.toISOString(),
+      endTime:   now.toISOString(),
+    };
+
+    // 심박수
+    try {
+      const hrData = await HealthConnect.readRecords({ type: 'HeartRate', timeRangeFilter: timeSpec });
+      const latest = hrData.records?.at(-1);
+      if (latest?.samples?.[0]?.beatsPerMinute) {
+        currentVitals.hr = latest.samples[0].beatsPerMinute;
+      }
+    } catch(e) { console.warn('[HealthConnect] 심박수 오류:', e.message); }
+
+    // 혈중산소
+    try {
+      const spo2Data = await HealthConnect.readRecords({ type: 'OxygenSaturation', timeRangeFilter: timeSpec });
+      const latest = spo2Data.records?.at(-1);
+      if (latest?.percentage?.value) {
+        currentVitals.spo2 = Math.round(latest.percentage.value);
+      }
+    } catch(e) { console.warn('[HealthConnect] 혈중산소 오류:', e.message); }
+
+    // 혈압
+    try {
+      const bpData = await HealthConnect.readRecords({ type: 'BloodPressure', timeRangeFilter: timeSpec });
+      const latest = bpData.records?.at(-1);
+      if (latest?.systolic?.inMillimetersOfMercury) {
+        currentVitals.bp_sys = Math.round(latest.systolic.inMillimetersOfMercury);
+        currentVitals.bp_dia = Math.round(latest.diastolic.inMillimetersOfMercury);
+      }
+    } catch(e) { console.warn('[HealthConnect] 혈압 오류:', e.message); }
+
+    // 체온
+    try {
+      const tempData = await HealthConnect.readRecords({ type: 'BodyTemperature', timeRangeFilter: timeSpec });
+      const latest = tempData.records?.at(-1);
+      if (latest?.temperature?.inCelsius) {
+        currentVitals.temp = Math.round(latest.temperature.inCelsius * 10) / 10;
+      }
+    } catch(e) { console.warn('[HealthConnect] 체온 오류:', e.message); }
+
+    currentVitals.source = 'health_connect';
+    updateVitalsUI();
+    checkVitalAlerts(currentVitals.hr, currentVitals.spo2, currentVitals.bp_sys);
+    console.log('[HealthConnect] 바이탈 로드 완료:', currentVitals);
+
+    // 소스 배지 업데이트
+    const badge = document.getElementById('vitals-source-badge');
+    if (badge) badge.textContent = '(Health Connect 연동)';
+
+  } catch(e) {
+    console.warn('[HealthConnect] 연동 실패:', e.message);
+  }
+}
+
+// 앱 시작 시 Health Connect 자동 로드
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(loadHealthConnect, 2000); // 2초 후 로드 (UI 초기화 후)
+});
 
 // buildTwinPayload에 currentVitals 반영 (STEP 2 버전 덮어쓰기)
 function buildTwinPayload() {
@@ -2282,18 +2399,42 @@ function goMyLoc(){
 //  카카오맵 초기화
 // ══════════════════════════════════════════
 function initMap(){
-  kakao.maps.load(function(){
+  kakao.maps.load(async function(){
     kakaoMap=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(37.5665,126.9780),level:7});
     kakaoMap.addControl(new kakao.maps.ZoomControl(),kakao.maps.ControlPosition.BOTTOMRIGHT);
     mapReady=true;
 
-    if(navigator.geolocation){
+    // ── Capacitor 앱 환경: 플러그인으로 런타임 권한 요청 ──
+    if(window.Capacitor && window.Capacitor.isNativePlatform()){
+      try{
+        const { Geolocation } = window.Capacitor.Plugins;
+        // 권한 다이얼로그 팝업 (최초 1회)
+        const perm = await Geolocation.requestPermissions();
+        if(perm.location === 'granted'){
+          const pos = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: true,
+            timeout: 10000
+            // maximumAge 없음 → 항상 신선한 GPS 좌표 사용
+          });
+          initLoc(pos.coords.latitude, pos.coords.longitude);
+        } else {
+          console.warn('[위치] 권한 거부 → 기본 좌표(서울시청) 사용');
+          initLoc(37.5665, 126.9780);
+        }
+      }catch(e){
+        console.error('[위치] Capacitor Geolocation 오류:', e.message);
+        initLoc(37.5665, 126.9780);
+      }
+    // ── 웹 브라우저 환경: 기존 방식 (maximumAge:0으로 캐시 방지) ──
+    } else if(navigator.geolocation){
       navigator.geolocation.getCurrentPosition(
         p=>initLoc(p.coords.latitude,p.coords.longitude),
         ()=>initLoc(37.5665,126.9780),
-        {enableHighAccuracy:true,timeout:10000,maximumAge:60000}
+        {enableHighAccuracy:true,timeout:10000,maximumAge:0}
       );
-    }else initLoc(37.5665,126.9780);
+    } else {
+      initLoc(37.5665,126.9780);
+    }
   });
 }
 
@@ -2818,7 +2959,7 @@ requestAnimationFrame(updateAppHeight);
     ">
       <div>
         <div style="font-size: 12px; font-weight: 600; color: #5b21b6;">Twin 프로파일 연동</div>
-        <div style="font-size: 11px; color: #7c3aed;" id="sync-bar-sub">김순자 프로파일을 자동으로 불러옵니다</div>
+        <div style="font-size: 11px; color: #7c3aed;" id="sync-bar-sub">저장된 Twin 프로파일을 불러옵니다</div>
       </div>
       <button id="sync-btn" onclick="syncFromJSON()" style="
         padding: 6px 14px; border: none; border-radius: 8px;
