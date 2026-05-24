@@ -1563,6 +1563,10 @@ function openAddUserModal() {
   document.getElementById('modal-medications').value = '';
   document.getElementById('modal-allergies').value = '';
   document.getElementById('modal-hospital').value = '';
+  document.getElementById('modal-hospital-search').value = '';
+  document.getElementById('modal-hospital-selected').style.display = 'none';
+  document.getElementById('modal-hospital-dropdown').style.display = 'none';
+  _selectedHospitalData = null;
   document.getElementById('profile-modal').style.display = 'flex';
   window._editingUid = null;
 }
@@ -1579,7 +1583,16 @@ function openEditProfileModal() {
   document.getElementById('modal-conditions').value = (profile.conditions || []).join(', ');
   document.getElementById('modal-medications').value= (profile.medications || []).join(', ');
   document.getElementById('modal-allergies').value  = (profile.allergies || []).join(', ');
-  document.getElementById('modal-hospital').value   = profile.regular_hospital || '';
+  const regHospVal = profile.regular_hospital || '';
+  document.getElementById('modal-hospital').value = regHospVal;
+  if (regHospVal) {
+    const dispName = typeof regHospVal === 'object' ? (regHospVal.name || '') : regHospVal;
+    document.getElementById('modal-hospital-selected-name').textContent = `🏥 ${dispName}`;
+    document.getElementById('modal-hospital-selected').style.display = 'block';
+    document.getElementById('modal-hospital-search').value = '';
+  } else {
+    document.getElementById('modal-hospital-selected').style.display = 'none';
+  }
   document.getElementById('profile-modal').style.display = 'flex';
   window._editingUid = uid;
 }
@@ -1647,6 +1660,105 @@ function _applyTwinProfile(p, btn, sub) {
     }
   }, 3000);
 }
+
+// ── 병원 검색 (카카오 장소 API) ──────────────────────────────
+let _hospitalSearchTimer = null;
+let _selectedHospitalData = null;
+
+function searchHospitalKakao(query) {
+  const dropdown = document.getElementById('modal-hospital-dropdown');
+  clearTimeout(_hospitalSearchTimer);
+
+  if (!query || query.length < 2) {
+    dropdown.style.display = 'none';
+    return;
+  }
+
+  _hospitalSearchTimer = setTimeout(() => {
+    if (!mapReady) {
+      dropdown.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:#888;">지도 로딩 후 검색 가능합니다</div>';
+      dropdown.style.display = 'block';
+      return;
+    }
+
+    const ps = new kakao.maps.services.Places();
+    ps.keywordSearch(query + ' 병원', (data, status) => {
+      if (status !== kakao.maps.services.Status.OK || !data.length) {
+        dropdown.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:#888;">검색 결과가 없습니다</div>';
+        dropdown.style.display = 'block';
+        return;
+      }
+
+      // 병원/의원/클리닉 필터링
+      const hospitals = data.filter(p =>
+        p.category_group_code === 'HP8' ||
+        p.place_name.includes('병원') ||
+        p.place_name.includes('의원') ||
+        p.place_name.includes('클리닉') ||
+        p.place_name.includes('의료원') ||
+        p.place_name.includes('센터')
+      ).slice(0, 8);
+
+      const items = hospitals.length ? hospitals : data.slice(0, 6);
+
+      dropdown.innerHTML = items.map((p, i) => `
+        <div onclick="selectHospital(${i})"
+          data-idx="${i}"
+          style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background .15s;"
+          onmouseover="this.style.background='#f5f3ff'"
+          onmouseout="this.style.background='#fff'">
+          <div style="font-size:13px;font-weight:600;color:#1a1a1a;">${p.place_name}</div>
+          <div style="font-size:11px;color:#888;margin-top:1px;">${p.address_name}</div>
+          ${p.phone ? `<div style="font-size:11px;color:#7F77DD;">${p.phone}</div>` : ''}
+        </div>
+      `).join('');
+
+      // 검색 결과 데이터 임시 저장
+      window._hospitalSearchResults = items;
+      dropdown.style.display = 'block';
+    }, { size: 15, category_group_code: 'HP8' });
+  }, 300); // 300ms 디바운스
+}
+
+function selectHospital(idx) {
+  const item = (window._hospitalSearchResults || [])[idx];
+  if (!item) return;
+
+  _selectedHospitalData = {
+    name: item.place_name,
+    address: item.address_name,
+    phone: item.phone || ''
+  };
+
+  // 숨김 필드에 값 저장
+  document.getElementById('modal-hospital').value = item.place_name;
+
+  // 선택 표시 UI
+  document.getElementById('modal-hospital-selected-name').textContent =
+    `🏥 ${item.place_name}  📍 ${item.address_name}`;
+  document.getElementById('modal-hospital-selected').style.display = 'block';
+
+  // 검색창 초기화 & 드롭다운 닫기
+  document.getElementById('modal-hospital-search').value = '';
+  document.getElementById('modal-hospital-dropdown').style.display = 'none';
+}
+
+function clearHospitalSelection() {
+  _selectedHospitalData = null;
+  document.getElementById('modal-hospital').value = '';
+  document.getElementById('modal-hospital-selected').style.display = 'none';
+  document.getElementById('modal-hospital-search').value = '';
+  document.getElementById('modal-hospital-search').focus();
+}
+
+// 드롭다운 외부 클릭 시 닫기
+document.addEventListener('click', (e) => {
+  const search = document.getElementById('modal-hospital-search');
+  const dropdown = document.getElementById('modal-hospital-dropdown');
+  if (search && dropdown && !search.contains(e.target) && !dropdown.contains(e.target)) {
+    dropdown.style.display = 'none';
+  }
+});
 
 function saveProfileFromModal() {
   const splitTrim = s => s.split(',').map(x => x.trim()).filter(Boolean);
@@ -3157,10 +3269,26 @@ requestAnimationFrame(updateAppHeight);
         style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
     </div>
 
-    <div style="margin-bottom: 16px;">
+    <div style="margin-bottom: 16px; position: relative;">
       <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">기존에 다니던 병원</label>
-      <input type="text" id="modal-hospital" placeholder="예: 세브란스병원 심장내과"
-        style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+      <!-- 검색 입력창 -->
+      <div style="position: relative;">
+        <input type="text" id="modal-hospital-search"
+          placeholder="병원명 검색 (예: 세브란스병원)"
+          autocomplete="off"
+          oninput="searchHospitalKakao(this.value)"
+          style="width: 100%; padding: 9px 36px 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+        <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔍</span>
+      </div>
+      <!-- 선택된 병원 표시 -->
+      <div id="modal-hospital-selected" style="display:none;margin-top:6px;padding:8px 12px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;font-size:12px;color:#3730a3;">
+        <span id="modal-hospital-selected-name"></span>
+        <button onclick="clearHospitalSelection()" style="float:right;background:none;border:none;color:#6b7280;cursor:pointer;font-size:14px;line-height:1;">✕</button>
+      </div>
+      <!-- 숨김 실제값 필드 -->
+      <input type="hidden" id="modal-hospital">
+      <!-- 검색 결과 드롭다운 -->
+      <div id="modal-hospital-dropdown" style="display:none;position:absolute;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:9999;max-height:220px;overflow-y:auto;margin-top:2px;"></div>
     </div>
 
     <div style="display: flex; gap: 8px;">
