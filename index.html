@@ -901,11 +901,12 @@ textarea{resize:none;height:60px;line-height:1.5;}
       </div>
     </div>
 
-    <!-- 병원 리스트 (지도 하단 고정, 항상 표시) -->
+    <!-- 병원 추천 섹션 -->
     <div id="resultSection">
+      <!-- 헤더 -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
         <div>
-          <div class="section-title" style="margin-bottom:2px;">주변 응급실</div>
+          <div class="section-title" style="margin-bottom:2px;">추천 응급실</div>
           <div class="section-sub" id="hospSubLabel">위치 확인 중...</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
@@ -917,7 +918,37 @@ textarea{resize:none;height:60px;line-height:1.5;}
           ">🔄 새로고침</button>
         </div>
       </div>
-      <div class="hosp-list" id="hospList"><div style="padding:24px;text-align:center;color:var(--text-hint);font-size:14px;">📍 위치를 확인하는 중입니다...</div></div>
+
+      <!-- ★ 단일 최적 추천 카드 -->
+      <div id="bestHospCard" style="display:none;background:var(--surface);border:2px solid var(--red);border-radius:16px;padding:18px 16px;margin-bottom:12px;box-shadow:0 4px 20px rgba(227,45,45,.10);">
+        <div style="font-size:11px;font-weight:700;color:var(--red);letter-spacing:.5px;margin-bottom:8px;">🏥 최적 응급실 추천</div>
+        <div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px;" id="bestHospName">—</div>
+        <div style="font-size:12px;color:var(--text-sub);margin-bottom:10px;" id="bestHospAddr">—</div>
+        <!-- 지표 행 -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;font-weight:600;margin-bottom:10px;">
+          <span id="bestHospDist" style="color:var(--red);">📍 —</span>
+          <span id="bestHospEta" style="color:var(--amber);">⏱️ —</span>
+          <span id="bestHospBed" style="color:var(--green);">🛏️ —</span>
+        </div>
+        <!-- 추천 근거 -->
+        <div id="bestHospReason" style="font-size:12px;color:#1D9E75;background:#e8f8f2;border-radius:8px;padding:7px 10px;margin-bottom:12px;line-height:1.6;"></div>
+        <!-- 액션 버튼 -->
+        <div style="display:flex;gap:8px;">
+          <button onclick="openRouteModal(0)" style="flex:2;padding:11px;background:var(--red);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">🗺 지금 출발</button>
+          <button id="bestHospCallBtn" onclick="" style="flex:1;padding:11px;background:#f3f4f6;color:var(--text);border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">📞 전화</button>
+          <button onclick="location.href='tel:119'" style="flex:1;padding:11px;background:#fef2f2;color:var(--red);border:1px solid #fca5a5;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">🚑 119</button>
+        </div>
+      </div>
+
+      <!-- 다른 병원 보기 토글 -->
+      <div id="otherHospToggle" style="display:none;text-align:center;margin-bottom:8px;">
+        <button onclick="toggleOtherHosp()" style="background:none;border:1px solid var(--border);border-radius:10px;padding:7px 18px;font-size:12px;color:var(--text-sub);cursor:pointer;" id="otherHospToggleBtn">
+          ▼ 다른 병원도 보기
+        </button>
+      </div>
+
+      <!-- 나머지 병원 리스트 (기본 숨김) -->
+      <div class="hosp-list" id="hospList" style="display:none;"><div style="padding:24px;text-align:center;color:var(--text-hint);font-size:14px;">📍 위치를 확인하는 중입니다...</div></div>
     </div>
 
   </div><!-- /main-scroll -->
@@ -1303,7 +1334,19 @@ async function sendChat(){
     document.getElementById('ktasBadge').textContent=`KTAS ${level} · ${kl[level]}`;
     document.getElementById('ktasBadge').style.cssText=`background:${kc[level]}20;color:${kc[level]};border:1px solid ${kc[level]}40;padding:3px 14px;border-radius:99px;font-size:var(--fs-sm);font-weight:700;`;
     document.getElementById('ktasDept').textContent=deptLabel;
-    document.getElementById('ktasReason').textContent=reason;
+    // reason_steps 단계별 근거 표시
+    const steps = result.reason_steps || [];
+    const ktasReasonEl = document.getElementById('ktasReason');
+    if(steps.length > 0){
+      ktasReasonEl.innerHTML = steps.map((s, i) =>
+        `<span style="display:block;padding:2px 0;">
+          <span style="color:${['#7F77DD','#d97706','#16a34a'][i]||'#888'};font-weight:600;">${i+1}단계</span>
+          <span style="color:var(--text-sub)"> ${s}</span>
+        </span>`
+      ).join('');
+    } else {
+      ktasReasonEl.textContent = reason;
+    }
 
     const specialtyText = result.specialty
       ? `<br><span style="color:#7F77DD;font-size:var(--fs-xs);">🏥 필요 진료과: ${result.specialty}</span>`
@@ -1320,10 +1363,17 @@ async function sendChat(){
       ? `<br><span style="color:#666;font-size:var(--fs-xs);">📋 병원 선택 근거: ${result.hospital_priority}</span>`
       : '';
 
+    // 단계별 근거 버블 텍스트
+    const stepsHtml = (result.reason_steps||[]).length > 0
+      ? '<br>' + result.reason_steps.map((s,i)=>
+          `<span style="display:block;font-size:var(--fs-xs);color:var(--text-sub);padding-left:8px;border-left:2px solid ${['#7F77DD','#d97706','#16a34a'][i]||'#ccc'};margin:2px 0;">${s}</span>`
+        ).join('')
+      : `<br><span style="color:var(--text-hint);font-size:var(--fs-xs);">${reason}</span>`;
+
     appendBubble(
       `<strong>KTAS ${level}</strong> · ${kl[level]}<br>` +
-      `<span style="color:var(--text-hint);font-size:var(--fs-xs);">${reason}</span><br>` +
-      (cc ? `<span style="color:#1d4ed8;font-size:var(--fs-xs);">주호소: ${cc}</span>` : '') +
+      stepsHtml +
+      (cc ? `<br><span style="color:#1d4ed8;font-size:var(--fs-xs);">주호소: ${cc}</span>` : '') +
       specialtyText +
       specialtyMatchBadge +
       priorityText +
@@ -1728,7 +1778,6 @@ async function loadHealthConnect() {
   try {
     // Capacitor 환경인지 확인 (웹 브라우저에서는 동작 안 함)
     if (!window.Capacitor || !window.Capacitor.isNativePlatform()) {
-      console.log('[HealthConnect] 웹 환경 - Health Connect 건너뜀');
       return;
     }
 
@@ -1799,7 +1848,6 @@ async function loadHealthConnect() {
     currentVitals.source = 'health_connect';
     updateVitalsUI();
     checkVitalAlerts(currentVitals.hr, currentVitals.spo2, currentVitals.bp_sys);
-    console.log('[HealthConnect] 바이탈 로드 완료:', currentVitals);
 
     // 소스 배지 업데이트
     const badge = document.getElementById('vitals-source-badge');
@@ -2005,6 +2053,7 @@ async function runSearch(){
   hideLoad();btn.disabled=false;
   renderMarkers(top5,isCrit);
   renderHospList(top5,isCrit);
+  renderBestHospCard(top5,isCrit);
 
   if(mapReady&&top5[0]){
     const bounds=new kakao.maps.LatLngBounds();
@@ -2026,32 +2075,62 @@ async function runSearch(){
 }
 
 function calcScore(h,ktas,dept){
-  // ── 기존 병원 우선 고려: 프로파일의 regular_hospital과 이름 매칭 시 보너스 ──
   const profile = (typeof getActiveProfile==='function') ? getActiveProfile() : null;
   const regularHosp = profile?.regular_hospital;
+
+  // ── KTAS 레벨별 기존 병원 가중치 ──────────────────────────
+  // 1~2(소생/긴급): 생존 최우선 → 기존 병원 완전 무시, 최근접으로
+  // 3(응급)       : 소폭 고려 (전문과가 더 중요)
+  // 4(준응급)     : 중간 고려
+  // 5(비응급)     : 강력 우선 (만성질환 연속 진료 효과)
+  const REGULAR_BONUS_BY_KTAS = {1:0, 2:0, 3:10, 4:25, 5:35};
+  const maxBonus = REGULAR_BONUS_BY_KTAS[ktas] ?? 15;
+
   let regularBonus = 0;
-  if(regularHosp && h.name){
-    // 문자열 또는 {name,department} 객체 모두 처리
+  let isRegularHosp = false;
+  if(maxBonus > 0 && regularHosp && h.name){
     const regName = typeof regularHosp==='object' ? (regularHosp.name||'') : String(regularHosp);
-    if(regName && h.name.includes(regName.replace(/병원|의원|센터/g,'').trim())){
-      regularBonus = 15; // 동일 병원 계열 우선 가산
+    const regKey  = regName.replace(/병원|의원|센터|대학교|대학|병원$/g,'').trim();
+    if(regKey && h.name.includes(regKey)){
+      regularBonus = maxBonus;
+      isRegularHosp = true;
     }
   }
+  // 기존 병원 매칭 여부를 병원 객체에 표시 (카드 UI에서 활용)
+  h._isRegularHosp = isRegularHosp;
 
-  if(!ktas||ktas<=2){
-    // KTAS 1-2: 거리+병상 중심, 기존 병원 소폭 반영
-    return Math.max(10, Math.round(100 - parseFloat(h.dist)*8 - h.eta*.5 + regularBonus*0.5));
+  // ── KTAS 1~2: 거리+병상만, 기존 병원 완전 무시 ───────────
+  if(!ktas || ktas <= 2){
+    const dist = parseFloat(h.dist);
+    const bedBonus = h.available==='ok' ? 8 : h.available==='crit' ? -15 : 0;
+    return Math.max(10, Math.round(100 - dist*8 - h.eta*.5 + bedBonus));
   }
-  let s=100;
-  s-=h.eta*1.6;
-  s-=Math.max(0,h.occupancy-40)*.5;
-  if(h.available==='crit')s-=18;
-  if(h.available==='ok')s+=5;
-  s-=parseFloat(h.dist)*1.2;
-  if(dept&&dept!=='general'&&h.depts?.[dept])s+=22;
-  s+=regularBonus; // 기존 병원 가산
-  s+=Math.random()*4-2;
-  return Math.max(10,Math.min(99,Math.round(s)));
+
+  // ── KTAS 3: 전문과 최우선, 기존 병원 소폭 ────────────────
+  if(ktas === 3){
+    let s = 100;
+    s -= h.eta * 1.6;
+    s -= parseFloat(h.dist) * 1.2;
+    s -= Math.max(0, h.occupancy-40) * .5;
+    if(h.available==='crit') s -= 18;
+    if(h.available==='ok')   s += 5;
+    if(dept && dept!=='general' && h.depts?.[dept]) s += 25; // 전문과 가중 높음
+    s += regularBonus;
+    s += Math.random()*3-1.5;
+    return Math.max(10, Math.min(99, Math.round(s)));
+  }
+
+  // ── KTAS 4~5: 기존 병원 강력 우선, 거리 차순위 ───────────
+  let s = 100;
+  s -= h.eta * 1.2;
+  s -= parseFloat(h.dist) * 1.0;
+  s -= Math.max(0, h.occupancy-40) * .3;
+  if(h.available==='crit') s -= 10;
+  if(h.available==='ok')   s += 5;
+  if(dept && dept!=='general' && h.depts?.[dept]) s += 15;
+  s += regularBonus; // KTAS 4: +25, KTAS 5: +35
+  s += Math.random()*3-1.5;
+  return Math.max(10, Math.min(99, Math.round(s)));
 }
 
 // ── NEMC API ─────────────────────────────
@@ -2123,10 +2202,6 @@ async function fetchEmer(lat,lng,deptKey){
     return hospitals;
   }catch(e){
     console.warn('[NEMC backend] 실패:', e.message);
-    console.info('[NEMC] 원인 진단:', {
-      url: `${BACKEND_URL}/hospitals`,
-      hint: 'Railway 환경변수 NEMC_API_KEY 확인 → /health 엔드포인트에서 nemc_ready 확인'
-    });
     return null;
   }
 }
@@ -2418,7 +2493,6 @@ function initMap(){
           });
           initLoc(pos.coords.latitude, pos.coords.longitude);
         } else {
-          console.warn('[위치] 권한 거부 → 기본 좌표(서울시청) 사용');
           initLoc(37.5665, 126.9780);
         }
       }catch(e){
@@ -2473,6 +2547,7 @@ async function initLoc(lat,lng){
     window._currentHospitals=init5;          // ← 마커 클릭 전에 먼저 세팅
     renderMarkers(init5,false);
     renderHospList(init5,false);
+    renderBestHospCard(init5,false);
     // resultSection 항상 표시
   } else {
     kakaoFallback(lat,lng,null,fb=>{
@@ -2482,6 +2557,7 @@ async function initLoc(lat,lng){
       window._currentHospitals=init5;        // ← 마커 클릭 전에 먼저 세팅
       renderMarkers(init5,false);
       renderHospList(init5,false);
+      renderBestHospCard(init5,false);
       // resultSection 항상 표시
     });
   }
@@ -2536,11 +2612,8 @@ async function checkBackendHealth(){
       // NEMC 키 없음 → 카카오 fallback 안내
       if(fbBadge){ fbBadge.style.display='inline-block'; fbBadge.textContent='● NEMC 키 미설정'; }
       console.warn('[NEMC] Railway 환경변수 NEMC_API_KEY 미설정. 카카오 장소검색으로 대체됩니다.');
-      console.info('[NEMC 설정 방법] Railway 대시보드 → Variables → NEMC_API_KEY 추가\n키 발급: https://www.data.go.kr (국립중앙의료원 응급의료정보 API)');
     } else {
-      console.info('[NEMC] API 키 설정됨 ✅');
     }
-    console.info(`[Backend] KTAS 항목 ${data.ktas_entries}개, NEMC 연동: ${data.nemc_ready}`);
   }catch(e){
     console.warn('[Backend] 헬스체크 실패:', e.message);
   }
