@@ -1708,9 +1708,20 @@ function searchHospitalKakao(query) {
 
       const items = hospitals.length ? hospitals : data.slice(0, 6);
 
+      // hover 스타일 CSS 동적 추가 (최초 1회)
+      if (!document.getElementById('hosp-dd-style')) {
+        const s = document.createElement('style');
+        s.id = 'hosp-dd-style';
+        s.textContent = '.hosp-dd-item:hover{background:#f5f3ff!important}';
+        document.head.appendChild(s);
+      }
+
       dropdown.innerHTML = items.map((p, i) => {
-        const phone = p.phone ? '<div style="font-size:11px;color:#7F77DD;">' + p.phone + '</div>' : '';
-        return '<div onclick="selectHospital(' + i + ')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background .15s;" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='#fff'">'
+        const phone = p.phone
+          ? '<div style="font-size:11px;color:#7F77DD;">' + p.phone + '</div>'
+          : '';
+        return '<div class="hosp-dd-item" onclick="selectHospital(' + i + ')"'
+          + ' style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background .15s;background:#fff;">'
           + '<div style="font-size:13px;font-weight:600;color:#1a1a1a;">' + p.place_name + '</div>'
           + '<div style="font-size:11px;color:#888;margin-top:1px;">' + p.address_name + '</div>'
           + phone
@@ -1777,11 +1788,7 @@ function updateHospitalPriorityLabel(val) {
 
   if (label) label.textContent = cfg.label;
   if (desc) {
-    const forceNote = forceCheck?.checked
-      ? '
-⚠️ 중증 시에도 이 병원 우선 적용 (체크됨)'
-      : '
-🟢 중증(KTAS 1~2) 시엔 최근접 병원 우선';
+    const forceNote = forceCheck?.checked ? ' ⚠️ 중증 시에도 이 병원 우선 적용 (체크됨)' : ' 🟢 중증(KTAS 1~2) 시엔 최근접 병원 우선';
     desc.textContent = cfg.desc + forceNote;
   }
 }
