@@ -2333,6 +2333,81 @@ function renderHospList(hospitals,isCrit){
   }
 }
 
+// ── 단일 최적 추천 카드 업데이트 ─────────
+function renderBestHospCard(hospitals, isCrit) {
+  if (!hospitals || !hospitals.length) return;
+  const h = hospitals[0];
+
+  const card = document.getElementById('bestHospCard');
+  if (card) card.style.display = 'block';
+
+  document.getElementById('bestHospName').textContent = h.name;
+  document.getElementById('bestHospAddr').textContent = h.address || '주소 정보 없음';
+  document.getElementById('bestHospDist').textContent = `📍 ${h.dist}km`;
+  document.getElementById('bestHospEta').textContent  = `⏱️ 약 ${h.eta}분`;
+
+  const bedColor = {ok:'var(--green)',warn:'var(--amber)',crit:'var(--red)'}[h.available] || 'var(--text-sub)';
+  const bedEl = document.getElementById('bestHospBed');
+  if (bedEl) { bedEl.textContent = `🛏️ 가용 ${h.availBeds}병상`; bedEl.style.color = bedColor; }
+
+  const profile   = (typeof getActiveProfile === 'function') ? getActiveProfile() : null;
+  const specialty = (typeof getSpecialtyFromConditions === 'function')
+    ? getSpecialtyFromConditions(profile?.conditions || []) : null;
+  const reasons = [];
+
+  if (h._isRegularHosp) {
+    const bonusMap = {3:10, 4:25, 5:35};
+    const ktasNow = detKtas || 4;
+    const bonus = bonusMap[ktasNow] || 15;
+    reasons.push(`⭐ 기존 진료 병원 우선 추천 (가중치 +${bonus}점)`);
+  }
+  if (isCrit) {
+    reasons.push('🚨 KTAS 1~2 — 최근접 응급실 즉시 이동 (기존 병원 무관)');
+  } else {
+    if (specialty && (h.specialties||[]).some(s => s.includes(specialty.replace(/과$/,'')))) {
+      reasons.push(`✅ ${specialty} 전문과 보유 (기저질환 매칭)`);
+    }
+  }
+  if (h.available === 'ok')   reasons.push('🟢 응급 병상 여유');
+  if (h.available === 'warn') reasons.push('🟡 병상 보통');
+  if (h.available === 'crit') reasons.push('🔴 병상 포화 상태');
+  if (!isCrit) reasons.push(`📊 종합 점수 ${h.score}점 (거리·대기·전문과·기존병원 가중 합산)`);
+  if (!h.real) reasons.push('ℹ️ 실시간 데이터 미연동 — 참고용');
+
+  document.getElementById('bestHospReason').innerHTML = reasons.join('<br>');
+
+  const callBtn = document.getElementById('bestHospCallBtn');
+  if (callBtn) {
+    if (h.phone) {
+      callBtn.textContent = `📞 ${h.phone}`;
+      callBtn.onclick = () => location.href = `tel:${h.phone}`;
+    } else {
+      callBtn.textContent = '📞 전화 정보 없음';
+      callBtn.disabled = true;
+      callBtn.style.opacity = '0.4';
+    }
+  }
+
+  const toggle = document.getElementById('otherHospToggle');
+  if (toggle) toggle.style.display = hospitals.length > 1 ? 'block' : 'none';
+
+  // window._currentHospitals 최신화 (경로 모달 연동)
+  window._currentHospitals = hospitals;
+}
+
+// ── 다른 병원 리스트 토글 ─────────────────
+let _otherHospOpen = false;
+function toggleOtherHosp() {
+  _otherHospOpen = !_otherHospOpen;
+  const list = document.getElementById('hospList');
+  const btn  = document.getElementById('otherHospToggleBtn');
+  if (list) list.style.display = _otherHospOpen ? 'block' : 'none';
+  if (btn)  btn.textContent = _otherHospOpen ? '▲ 접기' : '▼ 다른 병원도 보기';
+  if (_otherHospOpen) {
+    document.getElementById('hospList').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
 // ── 경로 모달 열기 ────────────────────────
 function openRouteModal(idx){
   const h = window._currentHospitals?.[idx];
