@@ -1111,8 +1111,14 @@ async function toggleVoice(){if(isRecording){stopRecording();}else{await startRe
 async function startRecording(){
   if(!navigator.mediaDevices?.getUserMedia){appendBubble('마이크를 지원하지 않는 브라우저입니다.','voice-info');return;}
   let stream;
-  try{stream=await navigator.mediaDevices.getUserMedia({audio:true});}
-  catch(e){appendBubble('마이크 권한이 없어 브라우저 음성인식으로 전환합니다.','voice-info');startWebSpeech();return;}
+  try {
+  stream = await navigator.mediaDevices.getUserMedia({audio: true});
+}
+catch(e) {
+  appendBubble(`마이크 오류: ${e.message}`, 'voice-info');
+  startWebSpeech();
+  return;
+}
 
   audioChunks=[];
   const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/ogg;codecs=opus';
