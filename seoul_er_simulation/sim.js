@@ -4,7 +4,15 @@
 
 (function(){
 
-  var SPECIALTIES = ['외상','심장','소아','일반'];
+  var SPECIALTIES = ['외상','심장','소아','일반','내과'];
+
+  // 2026-09-28, 8차: 51개 병원 전체 중환자실 병상을 합산해보니 내과 단독(587병상)·
+  // 외과 단독(543병상)이 이미 심장 버킷 전체(심장내과+흉부외과=404병상)보다 컸는데,
+  // 내과는 "일반"이라는 포괄 버킷 안에 묻혀서 규모가 드러나지 않고 있었다(반면 더
+  // 작은 심장은 처음부터 이름이 있었음) — scripts/1e_apply_manual_bed_detail.py의
+  // icu_buckets()에서 내과를 분리해 icu.내과를 새로 만들었다. 이 변경으로
+  // requiredSpecialty가 '심장'으로 전혀 나오지 않던 기존 문제(아래 "질병군 진료과
+  // 배분" 참고)도 함께 해소된다.
 
   // 2026-09-21: 수연(환자 발생)·민성(병원 선정) 역할 분담 문서의 "공통 코드값" 중
   // PATIENT_STATUS는 그대로 유지. 문서 초안의 AGE_GROUP(pediatric/adult/elderly)과
@@ -12,7 +20,53 @@
   // 넣으면서 더 세분화된 값으로 대체됨 — ageGroup은 'infant'가 추가된 4단계, 중증도는
   // severity 대신 ktasLevel(1~5 숫자)과 severityGroup(critical/urgent/less_urgent)
   // 두 필드로 나뉘어 표현됨. 아래 "수연 담당 — 환자 발생 에이전트 모델링" 섹션 참고.
-  var PATIENT_STATUS = { WAITING: 'waiting', TRANSIT: 'transit', TREATING: 'treating', FAILED: 'failed' };
+  // 2026-09-28, 9차: WAITING과 TRANSIT 사이에 CONTACTING을 추가 — 병원에 순차적으로
+  // 문의(접촉)하는 과정 자체를 상태로 표현한다. 아래 "9차 업데이트" 섹션과
+  // README.md의 "배정 로직 고도화 — 순차 탐색 모델" 섹션 참고.
+  var PATIENT_STATUS = { WAITING: 'waiting', CONTACTING: 'contacting', TRANSIT: 'transit', TREATING: 'treating', FAILED: 'failed' };
+
+  // 2026-09-28, 9차: 배정 방식 두 가지를 화면에서 토글하기 위한 모드.
+  // SEQUENTIAL(기본) — 가까운 병원부터 한 곳씩 문의, 그 시점 실제 자원으로 즉석 판정.
+  // GLOBAL — 기존 로직 그대로: 51곳을 매 틱 즉시 전역 스캔해 최적 병원에 바로 배정
+  //          ("병상 정보가 실시간으로 완전히 공유되는 이상적 시나리오"로 남겨둠).
+  var ASSIGNMENT_MODE = { SEQUENTIAL: 'sequential', GLOBAL: 'global' };
+  var assignmentMode = ASSIGNMENT_MODE.SEQUENTIAL;
+
+  // 2026-09-28, 9차 — 환자 발생/배정에 쓰이는 모든 난수를 재현 가능하게 만들기 위한
+  // 시드 고정 PRNG(mulberry32). 같은 시드면 두 배정 모드에 "동일한 환자 발생열"을
+  // 재생할 수 있어 순차 탐색 vs 전역 스캔을 공정하게 비교할 수 있다(설계 문서 2번
+  // 항목 "가능하면 좋고" 요구사항). nativeRandom은 시드 입력칸의 "새 시드" 버튼처럼
+  // 재현성이 필요 없는 곳(새 시드값 뽑기)에 쓰는 원본 Math.random.
+  // 2026-09-28, 9차 — 전역 Math.random을 통째로 덮어쓰지 않고, "환자 발생"에 쓰이는
+  // 난수만 별도 스트림(spawnRandom)으로 분리했다. 처음엔 Math.random 자체를 시드
+  // 고정 함수로 교체했는데, 그러면 배정 소요시간(문의 30초 대기 등)이 모드마다
+  // 달라서 혼잡도 근사(rand(CONGESTION_MIN,CONGESTION_MAX))·치료시간
+  // (rand(TREAT_MIN_SEC,TREAT_MAX_SEC)) 같은 "운영상" 난수 소비 시점이 모드별로
+  // 어긋나 버려, 정작 재현하고 싶었던 "환자 발생열" 자체가 두 모드에서 슬쩍 달라지는
+  // 문제가 있었다(직접 테스트로 확인함). 환자가 언제·어디서·어떤 프로필로
+  // 발생하는지는 배정 결과와 무관하게 simTime만으로 결정되므로, 이 부분만 독립
+  // 스트림으로 떼어내면 두 모드가 완전히 동일한 환자 발생열을 재생한다. 혼잡도
+  // 근사·치료시간은 원래 쓰던 rand()/Math.random 그대로 둬서(운영상 잡음, 비교의
+  // 본질이 아님) 손대지 않았다.
+  var nativeRandom = Math.random.bind(Math);
+  function mulberry32(seed){
+    return function(){
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var spawnRandom = mulberry32(42); // 실제 값은 최초 로드 시/초기화마다 아래에서 재시드됨
+  function spawnRand(a,b){ return a + spawnRandom()*(b-a); }
+  function applySeed(seed){
+    spawnRandom = mulberry32(seed >>> 0);
+  }
+  function readSeedFromInput(){
+    var el = document.getElementById('seedInput');
+    var v = el ? parseInt(el.value, 10) : NaN;
+    return Number.isFinite(v) ? v : Date.now();
+  }
 
   var GRADE_LABEL = {
     '권역응급의료센터':'권역센터',
@@ -32,6 +86,25 @@
     if(r.error) return;
     ROUTE_CACHE[r.o+'_'+r.h] = r;
   });
+
+  // 2026-09-28, 8차 — 질병군(소아·외상이 아닌 나머지) 환자를 내과/일반/심장 세
+  // 버킷에 배분하는 가중치. 서울/전국 단위 "상병별 응급실 이용" 실측 통계가 없어서
+  // (엑셀 두 개·응급의료 통계연보 모두 확인함, 진단명 분포 데이터 없음), 각 병원이
+  // 신고한 중환자실 병상 규모(icu.내과/icu.일반/icu.심장 합계)에 비례해서 배분한다
+  // — "실제 유병률"이 아니라 "병상 공급량을 대리변수로 쓴 가정"임을 분명히 밝혀둔다.
+  // 병상 규모가 바뀌면(데이터 갱신 시) 이 가중치도 자동으로 같이 바뀐다.
+  var DISEASE_SPECIALTY_WEIGHTS = (function(){
+    var totals = {일반:0, 내과:0, 심장:0};
+    HOSPITALS_DATA.forEach(function(h){
+      var icu = (h.resources && h.resources.icu) || {};
+      totals.일반 += Number(icu.일반)||0;
+      totals.내과 += Number(icu.내과)||0;
+      totals.심장 += Number(icu.심장)||0;
+    });
+    var sum = totals.일반 + totals.내과 + totals.심장;
+    if(!(sum>0)) throw new Error('DISEASE_SPECIALTY_WEIGHTS 합이 0입니다 — hospitals.json의 resources.icu를 확인하세요.');
+    return { 일반: totals.일반/sum, 내과: totals.내과/sum, 심장: totals.심장/sum };
+  })();
 
   // ============================================================
   // 수연 담당 — 환자 발생 에이전트 모델링 (2026-09-21, 수연 실제 구현 반영)
@@ -179,7 +252,7 @@
       totalWeight += Math.max(0, Number(POPULATION_DENSITY_CELLS[i].populationWeight)||0);
     }
     if(totalWeight<=0) throw new Error('POPULATION_DENSITY_CELLS의 populationWeight 합이 0입니다.');
-    var target=Math.random()*totalWeight;
+    var target=spawnRandom()*totalWeight;
     for(var j=0;j<POPULATION_DENSITY_CELLS.length;j++){
       target -= Math.max(0, Number(POPULATION_DENSITY_CELLS[j].populationWeight)||0);
       if(target<=0) return POPULATION_DENSITY_CELLS[j];
@@ -189,8 +262,8 @@
 
   function samplePointInsideCell(cell){
     for(var attempt=0;attempt<MAX_LOCATION_SAMPLE_ATTEMPTS;attempt++){
-      var lat=rand(cell.latMin,cell.latMax);
-      var lng=rand(cell.lngMin,cell.lngMax);
+      var lat=spawnRand(cell.latMin,cell.latMax);
+      var lng=spawnRand(cell.lngMin,cell.lngMax);
       if(isValidSeoulPoint(lat,lng)) return {lat:lat,lng:lng};
     }
     var origin=ROUTE_ORIGINS[cell.routeOriginIdx];
@@ -198,6 +271,13 @@
   }
 
   var WAIT_TIMEOUT_SEC = 600;
+  // 2026-09-28, 9차 — 가정치: 구급대원이 병원 1곳과 통화해서 수용 가능 여부를
+  // 확인하는 데 걸리는 시간(통화 연결·현장 상황 설명·병원 측 판단 포함). 이 프로젝트가
+  // 가진 어떤 자료에도 실제 "병원 문의 소요시간" 실측치는 없어 30초로 가정했다 —
+  // WAIT_TIMEOUT_SEC(600초) 안에 최대 20회 문의가 가능한 수준. 후보 병원 수(진료과별
+  // 34~51곳, 아래 9차 섹션 참고)가 이보다 항상 많아서 실제로는 후보를 다 소진하고
+  // 처음으로 되돌아가는 경우가 거의 없다.
+  var CONTACT_ATTEMPT_SEC = 30;
   var TREAT_MIN_SEC = 1800, TREAT_MAX_SEC = 5400;
   var AVG_SPEED_KMH = 19.5;                      // 캐시에 없는 구간의 직선 근사용 평균 속도 (카카오 실측 128구간 평균 19.5km/h 기반)
   var CONGESTION_MIN = 0.85, CONGESTION_MAX = 1.25;
@@ -206,7 +286,7 @@
   var DEFAULT_SPEED_INDEX = 2;
 
   var COLOR_WAITING = '#8B94A7';
-  var COLOR_REQUEST = '#FBBF24';
+  var COLOR_REQUEST = '#FBBF24'; // 2026-09-28, 9차: CONTACTING(순차 문의 중) 상태 마커 색으로 사용. 이전까지는 정의만 되고 실제로 쓰이진 않던 상수였음.
   var COLOR_TRANSIT = '#3ABEEA';
   var COLOR_FAILED = '#F87171';
   var COLOR_OK = '#4ADE80';
@@ -309,8 +389,8 @@
       name:h.name, shortName:h.shortName, grade:h.grade, lat:h.lat, lng:h.lng,
       capacity:h.capacity, specialties:h.specialties, occupied:0, marker:marker, radius:radius,
       barEl:null, countEl:null,
-      resources: h.resources || {icu:{외상:0,심장:0,소아:0,일반:0}, surgery:0},
-      occupiedICU: {외상:0, 심장:0, 소아:0, 일반:0}, occupiedOR: 0,
+      resources: h.resources || {icu:{외상:0,심장:0,소아:0,일반:0,내과:0}, surgery:0},
+      occupiedICU: {외상:0, 심장:0, 소아:0, 일반:0, 내과:0}, occupiedOR: 0,
       resEl:null
     };
   });
@@ -361,6 +441,38 @@
       if(score < bestScore){ bestScore = score; bestHospitalIdx = i; }
     }
     return bestHospitalIdx; // -1 이면 배정 가능한 병원 없음
+  }
+
+  // 2026-09-28, 9차 — 순차 탐색 모드의 후보 병원 목록.
+  // isHospitalEligible()은 그대로 두고(판정 조건 불변), 여기서는 "진료과를 표방하는가"
+  // 라는 정적 조건만으로 후보를 추린다 — 병상/ICU/수술실 여유는 실시간으로 바뀌므로
+  // 후보 목록 단계에서는 반영하지 않고, 실제 접촉(CONTACTING) 시점에 isHospitalEligible()
+  // 로 즉석 판정한다. 범위는 "51곳 전체 중 해당 진료과 표방 병원"(진료과별 34~51곳,
+  // README "9차" 섹션 참고) — 별도로 후보 수를 K개로 제한하지 않았다: 어차피 51곳
+  // 자체가 "서울 권역"이라는 이미 좁은 전체 모집단이라, 여기서 또 줄이면 오히려
+  // "가까운데 후보에서 빠져서 못 가는" 비현실적 상황을 만들 수 있기 때문이다.
+  function buildContactCandidates(patient, hospitals){
+    var candidates = [];
+    for(var i=0; i<hospitals.length; i++){
+      if(hospitals[i].specialties.indexOf(patient.requiredSpecialty) !== -1){
+        candidates.push(i);
+      }
+    }
+    candidates.sort(function(a,b){
+      return scoreHospital(patient, hospitals[a]) - scoreHospital(patient, hospitals[b]);
+    });
+    return candidates;
+  }
+
+  // isHospitalEligible()과 완전히 같은 조건을 "왜 거절됐는지" 로그 문구로 풀어쓴 것.
+  // 판정 순서·기준 자체는 바꾸지 않고 설명만 덧붙인다(이 함수는 배정 여부에 영향을
+  // 주지 않음 — isHospitalEligible()의 리턴값만 실제 판정에 쓰인다).
+  function hospitalRejectionReason(patient, hospital){
+    if(hospital.occupied >= hospital.capacity) return '응급실 병상 부족';
+    if(hospital.specialties.indexOf(patient.requiredSpecialty) === -1) return '진료과 미표방';
+    if(patient.needsICU && hospital.occupiedICU[patient.requiredSpecialty] >= hospital.resources.icu[patient.requiredSpecialty]) return '중환자실 부족';
+    if(patient.needsSurgery && hospital.occupiedOR >= hospital.resources.surgery) return '수술실 부족';
+    return '알 수 없음';
   }
 
   var bounds = L.latLngBounds(hospitals.map(function(h){ return [h.lat,h.lng]; }));
@@ -417,8 +529,49 @@
   var patientIdCounter = 0;
   var spawnCount=0, treatedCount=0, failCount=0;
   var totalTransitDurationSec=0, transitCountForAvg=0;
+  // 2026-09-28, 9차 — 탐색(문의) 비용 통계: 배정 성공까지 걸린 시도 횟수와, 발생부터
+  // 배정 확정까지 걸린 시간(=waitElapsed, WAITING+CONTACTING 합)을 이송 시간과 분리해서 본다.
+  var totalContactAttempts=0, totalSearchDurationSec=0, searchCountForAvg=0;
+  applySeed(readSeedFromInput());
   var simTime=0, spawnTimer=getNextArrivalIntervalSec(0);
   var playing=false;
+
+  // 2026-09-28, 9차 — 배정 확정 시 공통으로 필요한 부수효과(점유 갱신·시각화·통계)를
+  // 모아둔 헬퍼. 기존에는 WAITING 분기 안에 인라인으로만 있던 코드를 GLOBAL/SEQUENTIAL
+  // 두 경로가 같이 쓸 수 있게 뺐다 — 배정 여부 판정 로직(isHospitalEligible/
+  // selectHospital)은 그대로이고, "배정이 확정된 다음"만 공통화한 것.
+  function assignPatientToHospital(p, hospitalIdx, attempts){
+    var hos = hospitals[hospitalIdx];
+    hos.occupied++;
+    if(p.needsICU){ hos.occupiedICU[p.requiredSpecialty]++; }
+    if(p.needsSurgery){ hos.occupiedOR++; }
+    updateHospitalVisual(hospitalIdx);
+    p.hospitalIdx = hospitalIdx;
+    p.finalContactAttempts = attempts;
+    totalContactAttempts += attempts;
+    totalSearchDurationSec += p.waitElapsed;
+    searchCountForAvg++;
+    assignRoute(p, hos, hospitalIdx);
+  }
+
+  // 2026-09-28, 9차 — FAILED 전환 공통 헬퍼(기존에는 WAITING 분기에만 인라인으로 있었음).
+  function failPatient(p, reasonText){
+    p.status = PATIENT_STATUS.FAILED;
+    p.removeInReal = FAILED_LINGER_REAL_SEC;
+    p.marker.setStyle({color:COLOR_FAILED, fillColor:COLOR_FAILED});
+    p.marker.setPopupContent('배정 실패 · '+reasonText);
+    failCount++;
+    logEvent('환자 #'+p.id+' 배정 실패 - '+reasonText);
+  }
+
+  // 2026-09-28, 9차 — CONTACTING 상태에서 "지금 어느 병원에 문의 중인지" 팝업에 보여준다.
+  function updateContactingPopup(p, hos){
+    var needTag = (p.needsICU?' · 중환자실 필요':'') + (p.needsSurgery?' · 수술 필요':'');
+    p.marker.setPopupContent(
+      'KTAS '+p.ktasLevel+' · 필요 진료과: '+p.requiredSpecialty+needTag+
+      '<br>'+hos.name+'에 문의 중 (시도 '+(p.contactAttempts+1)+'번째 · 후보 '+p.candidateList.length+'곳 중)'
+    );
+  }
 
   function assignRoute(p, hos, hospitalIdx){
     var route = resolveRoute(p.lat, p.lng, hospitalIdx, hos.lat, hos.lng, p.routeOriginIdx);
@@ -427,15 +580,23 @@
     p.elapsed = 0;
     p.status = PATIENT_STATUS.TRANSIT;
     p.marker.setStyle({color:COLOR_TRANSIT, fillColor:COLOR_TRANSIT});
+    // 2026-09-28, 9차: SEQUENTIAL 모드에서는 "문의 → 배정 확정" 서사와 시도 횟수를
+    // 로그·팝업에 남긴다. GLOBAL(기존) 모드는 원래 문구를 그대로 유지해서 비교
+    // 기준선(baseline)의 서술이 이번 변경으로 바뀌지 않게 했다.
+    var isSequential = assignmentMode === ASSIGNMENT_MODE.SEQUENTIAL;
+    var attemptsTag = isSequential ? ' · 문의 '+(p.finalContactAttempts||1)+'회 시도 후 배정' : '';
     var needTag = (p.needsICU?' · 중환자실 필요':'') + (p.needsSurgery?' · 수술 필요':'');
-    p.marker.setPopupContent('KTAS '+p.ktasLevel+' · 필요 진료과: '+p.requiredSpecialty+needTag+'<br>이송 중 → '+hos.name);
+    p.marker.setPopupContent('KTAS '+p.ktasLevel+' · 필요 진료과: '+p.requiredSpecialty+needTag+attemptsTag+'<br>이송 중 → '+hos.name);
     var line = L.polyline(route.coords, {
       color: COLOR_TRANSIT, weight: 3, opacity: 0.8,
       dashArray: route.approx ? '6,6' : null
     }).addTo(map);
     p.routeLine = line;
     var etaMin = Math.max(1, Math.round(route.durationSec/60));
-    logEvent('환자 #'+p.id+' → '+hos.name+' 배정'+(route.approx?' (직선 근사)':' (실도로)')+' · 예상 '+etaMin+'분');
+    var assignLogText = isSequential
+      ? '환자 #'+p.id+' → '+hos.name+' 문의 → 배정 확정 (총 '+(p.finalContactAttempts||1)+'회 시도)'
+      : '환자 #'+p.id+' → '+hos.name+' 배정';
+    logEvent(assignLogText+(route.approx?' (직선 근사)':' (실도로)')+' · 예상 '+etaMin+'분');
     totalTransitDurationSec += route.durationSec;
     transitCountForAvg++;
   }
@@ -486,7 +647,7 @@
   function samplePatientProfile(){
     var totalJointCount=0;
     for(var i=0;i<AGE_KTAS_JOINT_COUNTS.length;i++) totalJointCount+=AGE_KTAS_JOINT_COUNTS[i].count;
-    var jointTarget=Math.random()*totalJointCount;
+    var jointTarget=spawnRandom()*totalJointCount;
     var jointRow=AGE_KTAS_JOINT_COUNTS[AGE_KTAS_JOINT_COUNTS.length-1];
     for(var j=0;j<AGE_KTAS_JOINT_COUNTS.length;j++){
       jointTarget-=AGE_KTAS_JOINT_COUNTS[j].count;
@@ -496,12 +657,12 @@
     var severityGroup=jointRow.ktasLevel<=2 ? 'critical' :
       (jointRow.ktasLevel===3 ? 'urgent' : 'less_urgent');
     var caseCounts=CASE_TYPE_COUNTS_BY_AGE[jointRow.ageGroup];
-    var caseType=Math.random()*(caseCounts.disease+caseCounts.injury)<caseCounts.disease ?
+    var caseType=spawnRandom()*(caseCounts.disease+caseCounts.injury)<caseCounts.disease ?
       'disease' : 'injury';
 
     // 같은 난수 한 번으로 결합상태를 뽑아 needsICU/needsSurgery의 상관관계를 보존한다.
     var resourceProb=RESOURCE_NEED_PROBABILITIES_BY_KTAS[severityGroup];
-    var resourceDraw=Math.random();
+    var resourceDraw=spawnRandom();
     var needsICU=false, needsSurgery=false;
     if(resourceDraw<resourceProb.both){
       needsICU=true; needsSurgery=true;
@@ -512,16 +673,28 @@
     }
 
     var isPediatric=jointRow.ageGroup==='infant' || jointRow.ageGroup==='pediatric';
-    // ⚠ 2026-09-21 확인됨: 아래 매핑은 소아/외상/일반 세 갈래뿐이라 requiredSpecialty가
-    // '심장'으로 절대 나오지 않는다(SPECIALTIES는 4개인데 3개만 실제로 쓰임). 병원 쪽
-    // 심장 진료과·심장 ICU 버킷이 전혀 소모되지 않는다는 뜻 — 수연님과 상의해서 심장
-    // 케이스 갈래(예: 성인/노인 disease 중 일부)를 추가할지 정할 것. 병원 선정 로직은
-    // 건드리지 않았으니 이 TODO는 순수히 수연님 쪽 확률 매핑 문제.
-    var requiredSpecialty=isPediatric ? '소아' : (caseType==='injury' ? '외상' : '일반');
+    // 2026-09-28, 8차: 이전에는 아래 매핑이 소아/외상/일반 세 갈래뿐이라 requiredSpecialty가
+    // '심장'으로 절대 나오지 않았다(SPECIALTIES는 4개인데 3개만 실제로 쓰임 — 병원 쪽
+    // 심장 ICU 버킷이 전혀 소모되지 않는 죽은 자원이었음, 2026-09-21 TODO). 이번에
+    // 질병군(소아·손상이 아닌 나머지) 환자를 DISEASE_SPECIALTY_WEIGHTS(파일 상단, 병상
+    // 규모비례 가정)에 따라 내과/일반/심장 세 갈래로 나누도록 고쳤다 — 실제 상병 분포
+    // 데이터가 없어 택한 가정이며, 실측 데이터가 확보되면 이 가중치 계산부만 교체하면 됨.
+    var requiredSpecialty;
+    if(isPediatric){
+      requiredSpecialty='소아';
+    } else if(caseType==='injury'){
+      requiredSpecialty='외상';
+    } else {
+      var diseaseDraw=spawnRandom();
+      if(diseaseDraw<DISEASE_SPECIALTY_WEIGHTS.내과) requiredSpecialty='내과';
+      else if(diseaseDraw<DISEASE_SPECIALTY_WEIGHTS.내과+DISEASE_SPECIALTY_WEIGHTS.심장) requiredSpecialty='심장';
+      else requiredSpecialty='일반';
+    }
     var requiredCareType=isPediatric ?
       (severityGroup==='critical' ? 'pediatric_critical' : 'pediatric_general') :
       (caseType==='injury' ? (severityGroup==='critical' ? 'trauma_critical' : 'trauma_general') :
-        (severityGroup==='critical' ? 'general_critical' : 'general'));
+        (requiredSpecialty==='심장' ? (severityGroup==='critical' ? 'cardiac_critical' : 'cardiac_general') :
+          (severityGroup==='critical' ? 'general_critical' : 'general')));
 
     return {
       patientType:jointRow.ageGroup+'_ktas_'+jointRow.ktasLevel,
@@ -565,7 +738,7 @@
     var arrivalsPerHour=(ANNUAL_ED_VISIT_COUNT/ANNUAL_DAY_COUNT)*dayMultiplier*bandShare/bandHours;
     var ratePerSec=arrivalsPerHour/3600*PATIENT_DEMAND_MULTIPLIER;
     if(!(ratePerSec>0)) throw new Error('환자 도착률은 0보다 커야 합니다.');
-    return Math.max(1,-Math.log(Math.max(Number.EPSILON,1-Math.random()))/ratePerSec);
+    return Math.max(1,-Math.log(Math.max(Number.EPSILON,1-spawnRandom()))/ratePerSec);
   }
 
   function spawnPatient(){
@@ -620,24 +793,60 @@
 
       if(p.status === PATIENT_STATUS.WAITING){
         p.waitElapsed += simDt;
-        var selectedHospitalIdx = selectHospital(p, hospitals);
 
-        if(selectedHospitalIdx !== -1){
-          hospitals[selectedHospitalIdx].occupied++;
-          if(p.needsICU){ hospitals[selectedHospitalIdx].occupiedICU[p.requiredSpecialty]++; }
-          if(p.needsSurgery){ hospitals[selectedHospitalIdx].occupiedOR++; }
-          updateHospitalVisual(selectedHospitalIdx);
-
-          p.hospitalIdx = selectedHospitalIdx;
-          assignRoute(p, hospitals[selectedHospitalIdx], selectedHospitalIdx);
-        } else if(p.waitElapsed > WAIT_TIMEOUT_SEC){
-          p.status = PATIENT_STATUS.FAILED;
-          p.removeInReal = FAILED_LINGER_REAL_SEC;
-          p.marker.setStyle({color:COLOR_FAILED, fillColor:COLOR_FAILED});
-          var failReason = (p.needsICU||p.needsSurgery) ? '가용 응급실/중환자실/수술실 없음' : '가용 응급실 없음';
-          p.marker.setPopupContent('배정 실패 · '+failReason);
-          failCount++;
-          logEvent('환자 #'+p.id+' 배정 실패 - '+failReason);
+        if(assignmentMode === ASSIGNMENT_MODE.GLOBAL){
+          // 기존 로직 그대로: 51곳 즉시 전역 스캔 후 최적 병원에 바로 배정.
+          var selectedHospitalIdx = selectHospital(p, hospitals);
+          if(selectedHospitalIdx !== -1){
+            assignPatientToHospital(p, selectedHospitalIdx, 1);
+          } else if(p.waitElapsed > WAIT_TIMEOUT_SEC){
+            var failReason = (p.needsICU||p.needsSurgery) ? '가용 응급실/중환자실/수술실 없음' : '가용 응급실 없음';
+            failPatient(p, failReason);
+          }
+        } else {
+          // 2026-09-28, 9차 — SEQUENTIAL(기본) 모드: WAITING은 "아직 첫 문의를 시작하지
+          // 않음"이라는 찰나의 상태다. 발생 직후 같은 틱에서 바로 후보 목록을 만들고
+          // CONTACTING으로 넘어간다(첫 접촉 자체는 CONTACT_ATTEMPT_SEC 뒤에 이뤄짐).
+          p.candidateList = buildContactCandidates(p, hospitals);
+          p.candidateIdx = 0;
+          p.contactAttempts = 0;
+          p.contactElapsed = 0;
+          if(p.candidateList.length === 0){
+            // 51곳 중 이 진료과를 표방하는 병원이 하나도 없는 경우 — 현재 데이터로는
+            // 사실상 발생하지 않지만(모든 진료과가 최소 34곳 이상에서 표방됨) 방어적으로 처리.
+            failPatient(p, '해당 진료과를 표방하는 응급실 없음');
+          } else {
+            p.status = PATIENT_STATUS.CONTACTING;
+            p.marker.setStyle({color:COLOR_REQUEST, fillColor:COLOR_REQUEST});
+            updateContactingPopup(p, hospitals[p.candidateList[0]]);
+          }
+        }
+      } else if(p.status === PATIENT_STATUS.CONTACTING){
+        p.waitElapsed += simDt;
+        if(p.waitElapsed > WAIT_TIMEOUT_SEC){
+          failPatient(p, '가용 응급실 없음 (문의 '+p.contactAttempts+'회 시도)');
+        } else {
+          p.contactElapsed += simDt;
+          // 배속이 높을 때 한 틱에 여러 번 접촉 주기가 지나갈 수 있어 while로 처리
+          // (spawnTimer 누적과 같은 원칙, 위 tick() 주석 참고).
+          while(p.contactElapsed >= CONTACT_ATTEMPT_SEC && p.status === PATIENT_STATUS.CONTACTING){
+            p.contactElapsed -= CONTACT_ATTEMPT_SEC;
+            var hIdx = p.candidateList[p.candidateIdx % p.candidateList.length];
+            var hos = hospitals[hIdx];
+            p.contactAttempts++;
+            if(isHospitalEligible(p, hos)){
+              assignPatientToHospital(p, hIdx, p.contactAttempts);
+            } else {
+              logEvent('환자 #'+p.id+' → '+hos.name+' 문의 → 거절 ('+hospitalRejectionReason(p, hos)+')');
+              p.candidateIdx++;
+              if(p.waitElapsed > WAIT_TIMEOUT_SEC){
+                failPatient(p, '가용 응급실 없음 (문의 '+p.contactAttempts+'회 시도)');
+              }
+            }
+          }
+          if(p.status === PATIENT_STATUS.CONTACTING){
+            updateContactingPopup(p, hospitals[p.candidateList[p.candidateIdx % p.candidateList.length]]);
+          }
         }
       } else if(p.status === PATIENT_STATUS.TRANSIT){
         p.elapsed += simDt;
@@ -681,12 +890,22 @@
     document.getElementById('failStat').textContent = failCount;
     document.getElementById('etaStat').textContent = transitCountForAvg > 0
       ? Math.round(totalTransitDurationSec/transitCountForAvg/60) : '-';
-    var waitingCount = 0, transitCount = 0;
+    // 2026-09-28, 9차 — 탐색 비용 지표: 배정까지 평균 몇 번 문의했는지, 그 탐색에
+    // 평균 얼마나 걸렸는지(이송 시간과 분리). GLOBAL 모드에서는 시도=1·탐색시간≈0으로
+    // 나와서 SEQUENTIAL과의 대비가 그대로 숫자로 드러난다.
+    var avgAttemptsEl = document.getElementById('avgAttemptsStat');
+    var avgSearchEl = document.getElementById('avgSearchStat');
+    if(avgAttemptsEl) avgAttemptsEl.textContent = searchCountForAvg > 0
+      ? (totalContactAttempts/searchCountForAvg).toFixed(1) : '-';
+    if(avgSearchEl) avgSearchEl.textContent = searchCountForAvg > 0
+      ? (totalSearchDurationSec/searchCountForAvg/60).toFixed(1) : '-';
+    var waitingCount = 0, contactingCount = 0, transitCount = 0;
     for(var i=0;i<patients.length;i++){
       if(patients[i].status===PATIENT_STATUS.WAITING) waitingCount++;
+      if(patients[i].status===PATIENT_STATUS.CONTACTING) contactingCount++;
       if(patients[i].status===PATIENT_STATUS.TRANSIT) transitCount++;
     }
-    document.getElementById('liveReadout').textContent = '대기 '+waitingCount+' · 이송중 '+transitCount;
+    document.getElementById('liveReadout').textContent = '대기 '+waitingCount+' · 문의중 '+contactingCount+' · 이송중 '+transitCount;
   }
 
   function resetSim(){
@@ -699,12 +918,17 @@
     patients = [];
     hospitals.forEach(function(hos, idx){
       hos.occupied = 0;
-      hos.occupiedICU = {외상:0, 심장:0, 소아:0, 일반:0};
+      hos.occupiedICU = {외상:0, 심장:0, 소아:0, 일반:0, 내과:0};
       hos.occupiedOR = 0;
       updateHospitalVisual(idx);
     });
     spawnCount=0; treatedCount=0; failCount=0;
     totalTransitDurationSec=0; transitCountForAvg=0;
+    totalContactAttempts=0; totalSearchDurationSec=0; searchCountForAvg=0;
+    // 2026-09-28, 9차 — 초기화할 때마다 시드 입력칸의 값으로 다시 시드를 건다. 시드값을
+    // 그대로 두고 모드만 바꿔 초기화하면(아래 modeSel 변경 핸들러), 두 모드에 동일한
+    // 환자 발생열이 재생된다.
+    applySeed(readSeedFromInput());
     simTime=0; spawnTimer = getNextArrivalIntervalSec(simTime);
     eventLogEl.innerHTML = '';
     updateStatsDisplay();
@@ -723,6 +947,26 @@
     updateStatsDisplay();
   });
   document.getElementById('resetBtn').addEventListener('click', resetSim);
+
+  // 2026-09-28, 9차 — 배정 모드 토글. 모드를 바꾸면 진행 중이던 WAITING/CONTACTING
+  // 환자의 상태 가정이 서로 달라 섞어 쓰기 어려우므로, 깨끗한 비교를 위해 전환 시
+  // 항상 초기화한다(시드값은 유지되므로 같은 환자 발생열로 다시 재생됨).
+  var modeSel = document.getElementById('modeSel');
+  if(modeSel){
+    modeSel.value = assignmentMode;
+    modeSel.addEventListener('change', function(){
+      assignmentMode = modeSel.value === ASSIGNMENT_MODE.GLOBAL ? ASSIGNMENT_MODE.GLOBAL : ASSIGNMENT_MODE.SEQUENTIAL;
+      resetSim();
+    });
+  }
+  var newSeedBtn = document.getElementById('newSeedBtn');
+  if(newSeedBtn){
+    newSeedBtn.addEventListener('click', function(){
+      var seedInputEl = document.getElementById('seedInput');
+      if(seedInputEl) seedInputEl.value = Math.floor(nativeRandom()*1e9);
+      resetSim();
+    });
+  }
 
   var speedSel = document.getElementById('speedSel');
   SPEED_LEVELS.forEach(function(v, idx){

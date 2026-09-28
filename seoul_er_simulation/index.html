@@ -73,8 +73,18 @@
       <button id="burstBtn">환자 급증</button>
       <button id="resetBtn">초기화</button>
       <select id="speedSel"></select>
+      <select id="modeSel" title="병원에 어떻게 문의해서 배정하는지 비교합니다">
+        <option value="sequential">배정: 순차 탐색(기본)</option>
+        <option value="global">배정: 전역 즉시 스캔(비교용)</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim);">
+        시드
+        <input id="seedInput" type="number" value="42" title="같은 시드면 두 배정 모드에 동일한 환자 발생열이 재생됩니다"
+          style="width:88px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-family:'IBM Plex Mono',monospace;font-size:12px;">
+      </label>
+      <button id="newSeedBtn" title="새 무작위 시드를 뽑고 초기화합니다">새 시드</button>
     </div>
-    <div class="live-readout" id="liveReadout">대기 0 · 이송중 0</div>
+    <div class="live-readout" id="liveReadout">대기 0 · 문의중 0 · 이송중 0</div>
   </header>
   <main>
     <div id="map"></div>
@@ -84,6 +94,8 @@
         <div class="stat-card"><p class="stat-label">치료 완료</p><p class="stat-value" id="treatedStat">0</p></div>
         <div class="stat-card"><p class="stat-label">배정 실패</p><p class="stat-value" id="failStat">0</p></div>
         <div class="stat-card"><p class="stat-label">평균 이송(분)</p><p class="stat-value" id="etaStat">-</p></div>
+        <div class="stat-card"><p class="stat-label">평균 문의횟수</p><p class="stat-value" id="avgAttemptsStat">-</p></div>
+        <div class="stat-card"><p class="stat-label">평균 탐색시간(분)</p><p class="stat-value" id="avgSearchStat">-</p></div>
       </div>
       <p class="section-label">
         <span>응급실 현황 (51)</span>
@@ -98,7 +110,7 @@
     </aside>
   </main>
   <footer>
-    교육·데모 목적의 가상 시뮬레이션입니다. 병원 위치·병상수(capacity)·진료과(specialties)·중환자실/수술실(resources)은 서울 법정 응급의료기관 51곳(권역응급의료센터 7·지역응급의료센터 24·지역응급의료기관 20)의 응급똑똑 앱 실측 데이터입니다(자세한 출처는 README.md 참고). 원래 74곳 중 세부 병상 데이터가 없던 응급실운영신고기관 23곳은 이번 범위에서 제외했습니다. 환자 중 일부는 응급실 병상뿐 아니라 중환자실·수술실 여유가 있어야 배정됩니다(고정 확률로 단순화, 아직 KTAS 반영 전). 이동 경로는 서울 권역 4×4 격자(16개 대표 지점)와 병원 51곳의 조합(816구간)을 카카오모빌리티 길찾기 API(실시간 교통 반영)로 사전 계산해 캐싱한 것이라 근사(점선) 경로가 나오지 않습니다. 시연 중에는 외부 API를 호출하지 않습니다.
+    교육·데모 목적의 가상 시뮬레이션입니다. 병원 위치·병상수(capacity)·진료과(specialties)·중환자실/수술실(resources)은 서울 법정 응급의료기관 51곳(권역응급의료센터 7·지역응급의료센터 24·지역응급의료기관 20)의 응급똑똑 앱 실측 데이터입니다(자세한 출처는 README.md 참고). 원래 74곳 중 세부 병상 데이터가 없던 응급실운영신고기관 23곳은 이번 범위에서 제외했습니다. 환자 중 일부는 응급실 병상뿐 아니라 중환자실·수술실 여유가 있어야 배정됩니다(고정 확률로 단순화, 아직 KTAS 반영 전). 이동 경로는 서울 권역 4×4 격자(16개 대표 지점)와 병원 51곳의 조합(816구간)을 카카오모빌리티 길찾기 API(실시간 교통 반영)로 사전 계산해 캐싱한 것이라 근사(점선) 경로가 나오지 않습니다. 시연 중에는 외부 API를 호출하지 않습니다. 병원 배정은 기본적으로 "순차 탐색" 방식 — 가까운 병원부터 한 곳씩 문의해 그 시점의 실제 자원으로 즉석 판정하며, 접촉 1회당 30초가 걸린다고 가정합니다(통화·현장 판단 소요시간 실측치는 없음). 상단의 "전역 즉시 스캔"은 병상 정보가 실시간으로 완전히 공유된다고 가정한 이상적 비교 시나리오이며, 같은 시드값을 쓰면 두 모드에 동일한 환자 발생열이 재생되어 공정하게 비교할 수 있습니다.
   </footer>
 </div>
 

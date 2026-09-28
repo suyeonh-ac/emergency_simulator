@@ -16,7 +16,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -24,7 +25,8 @@ window.HOSPITALS_DATA = [
         "외상": 53,
         "심장": 40,
         "소아": 41,
-        "일반": 71
+        "내과": 29,
+        "일반": 42
       },
       "surgery": 17
     },
@@ -42,7 +44,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -50,7 +53,8 @@ window.HOSPITALS_DATA = [
         "외상": 16,
         "심장": 0,
         "소아": 23,
-        "일반": 65
+        "내과": 20,
+        "일반": 45
       },
       "surgery": 24
     },
@@ -68,7 +72,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -76,7 +81,8 @@ window.HOSPITALS_DATA = [
         "외상": 23,
         "심장": 16,
         "소아": 64,
-        "일반": 75
+        "내과": 10,
+        "일반": 65
       },
       "surgery": 53
     },
@@ -94,7 +100,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -102,7 +109,8 @@ window.HOSPITALS_DATA = [
         "외상": 25,
         "심장": 9,
         "소아": 3,
-        "일반": 18
+        "내과": 7,
+        "일반": 11
       },
       "surgery": 10
     },
@@ -120,7 +128,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -128,7 +137,8 @@ window.HOSPITALS_DATA = [
         "외상": 47,
         "심장": 0,
         "소아": 28,
-        "일반": 27
+        "내과": 10,
+        "일반": 17
       },
       "surgery": 13
     },
@@ -146,7 +156,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -154,7 +165,8 @@ window.HOSPITALS_DATA = [
         "외상": 24,
         "심장": 19,
         "소아": 41,
-        "일반": 32
+        "내과": 16,
+        "일반": 16
       },
       "surgery": 25
     },
@@ -172,7 +184,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -180,7 +193,8 @@ window.HOSPITALS_DATA = [
         "외상": 15,
         "심장": 0,
         "소아": 14,
-        "일반": 87
+        "내과": 12,
+        "일반": 75
       },
       "surgery": 16
     },
@@ -198,7 +212,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -206,7 +221,8 @@ window.HOSPITALS_DATA = [
         "외상": 17,
         "심장": 12,
         "소아": 19,
-        "일반": 11
+        "내과": 10,
+        "일반": 1
       },
       "surgery": 13
     },
@@ -224,7 +240,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "fallback(dutyHano=777 × 0.0427)",
     "resources": {
@@ -232,7 +249,8 @@ window.HOSPITALS_DATA = [
         "외상": 22,
         "심장": 12,
         "소아": 19,
-        "일반": 49
+        "내과": 16,
+        "일반": 33
       },
       "surgery": 19
     },
@@ -250,7 +268,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -258,7 +277,8 @@ window.HOSPITALS_DATA = [
         "외상": 16,
         "심장": 20,
         "소아": 34,
-        "일반": 57
+        "내과": 28,
+        "일반": 29
       },
       "surgery": 16
     },
@@ -276,7 +296,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -284,7 +305,8 @@ window.HOSPITALS_DATA = [
         "외상": 25,
         "심장": 4,
         "소아": 16,
-        "일반": 25
+        "내과": 24,
+        "일반": 1
       },
       "surgery": 21
     },
@@ -302,7 +324,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -310,7 +333,8 @@ window.HOSPITALS_DATA = [
         "외상": 15,
         "심장": 0,
         "소아": 18,
-        "일반": 96
+        "내과": 18,
+        "일반": 78
       },
       "surgery": 16
     },
@@ -336,6 +360,7 @@ window.HOSPITALS_DATA = [
         "외상": 20,
         "심장": 0,
         "소아": 4,
+        "내과": 0,
         "일반": 15
       },
       "surgery": 7
@@ -354,7 +379,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -362,7 +388,8 @@ window.HOSPITALS_DATA = [
         "외상": 16,
         "심장": 0,
         "소아": 10,
-        "일반": 45
+        "내과": 16,
+        "일반": 29
       },
       "surgery": 11
     },
@@ -380,7 +407,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -388,7 +416,8 @@ window.HOSPITALS_DATA = [
         "외상": 35,
         "심장": 48,
         "소아": 73,
-        "일반": 50
+        "내과": 28,
+        "일반": 22
       },
       "surgery": 46
     },
@@ -406,7 +435,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -414,7 +444,8 @@ window.HOSPITALS_DATA = [
         "외상": 34,
         "심장": 30,
         "소아": 4,
-        "일반": 26
+        "내과": 10,
+        "일반": 16
       },
       "surgery": 5
     },
@@ -432,7 +463,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -440,7 +472,8 @@ window.HOSPITALS_DATA = [
         "외상": 35,
         "심장": 12,
         "소아": 19,
-        "일반": 24
+        "내과": 15,
+        "일반": 9
       },
       "surgery": 14
     },
@@ -458,7 +491,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -466,7 +500,8 @@ window.HOSPITALS_DATA = [
         "외상": 17,
         "심장": 0,
         "소아": 3,
-        "일반": 42
+        "내과": 18,
+        "일반": 24
       },
       "surgery": 13
     },
@@ -484,7 +519,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "소아",
-      "심장"
+      "심장",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -492,7 +528,8 @@ window.HOSPITALS_DATA = [
         "외상": 49,
         "심장": 24,
         "소아": 32,
-        "일반": 57
+        "내과": 24,
+        "일반": 33
       },
       "surgery": 5
     },
@@ -510,7 +547,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -518,7 +556,8 @@ window.HOSPITALS_DATA = [
         "외상": 27,
         "심장": 10,
         "소아": 13,
-        "일반": 67
+        "내과": 14,
+        "일반": 53
       },
       "surgery": 14
     },
@@ -544,6 +583,7 @@ window.HOSPITALS_DATA = [
         "외상": 12,
         "심장": 8,
         "소아": 28,
+        "내과": 0,
         "일반": 31
       },
       "surgery": 23
@@ -562,7 +602,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -570,7 +611,8 @@ window.HOSPITALS_DATA = [
         "외상": 53,
         "심장": 40,
         "소아": 76,
-        "일반": 62
+        "내과": 29,
+        "일반": 33
       },
       "surgery": 3
     },
@@ -596,6 +638,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 28
       },
       "surgery": 7
@@ -622,6 +665,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 22
       },
       "surgery": 8
@@ -640,7 +684,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "fallback(dutyHano=858 × 0.0427)",
     "resources": {
@@ -648,7 +693,8 @@ window.HOSPITALS_DATA = [
         "외상": 34,
         "심장": 30,
         "소아": 24,
-        "일반": 28
+        "내과": 10,
+        "일반": 18
       },
       "surgery": 19
     },
@@ -666,7 +712,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -674,7 +721,8 @@ window.HOSPITALS_DATA = [
         "외상": 18,
         "심장": 0,
         "소아": 15,
-        "일반": 40
+        "내과": 19,
+        "일반": 21
       },
       "surgery": 13
     },
@@ -692,7 +740,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -700,7 +749,8 @@ window.HOSPITALS_DATA = [
         "외상": 49,
         "심장": 24,
         "소아": 89,
-        "일반": 96
+        "내과": 24,
+        "일반": 72
       },
       "surgery": 4
     },
@@ -718,7 +768,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -726,7 +777,8 @@ window.HOSPITALS_DATA = [
         "외상": 17,
         "심장": 0,
         "소아": 25,
-        "일반": 29
+        "내과": 12,
+        "일반": 17
       },
       "surgery": 16
     },
@@ -744,7 +796,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -752,7 +805,8 @@ window.HOSPITALS_DATA = [
         "외상": 39,
         "심장": 18,
         "소아": 55,
-        "일반": 45
+        "내과": 22,
+        "일반": 23
       },
       "surgery": 32
     },
@@ -770,7 +824,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -778,7 +833,8 @@ window.HOSPITALS_DATA = [
         "외상": 27,
         "심장": 10,
         "소아": 0,
-        "일반": 34
+        "내과": 14,
+        "일반": 20
       },
       "surgery": 13
     },
@@ -796,7 +852,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -804,7 +861,8 @@ window.HOSPITALS_DATA = [
         "외상": 25,
         "심장": 10,
         "소아": 12,
-        "일반": 28
+        "내과": 21,
+        "일반": 7
       },
       "surgery": 14
     },
@@ -822,7 +880,8 @@ window.HOSPITALS_DATA = [
       "일반",
       "외상",
       "심장",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -830,7 +889,8 @@ window.HOSPITALS_DATA = [
         "외상": 25,
         "심장": 0,
         "소아": 16,
-        "일반": 40
+        "내과": 24,
+        "일반": 16
       },
       "surgery": 7
     },
@@ -856,6 +916,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 13,
+        "내과": 0,
         "일반": 21
       },
       "surgery": 3
@@ -882,6 +943,7 @@ window.HOSPITALS_DATA = [
         "외상": 16,
         "심장": 8,
         "소아": 20,
+        "내과": 0,
         "일반": 29
       },
       "surgery": 8
@@ -899,7 +961,8 @@ window.HOSPITALS_DATA = [
     "specialties": [
       "일반",
       "외상",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -907,7 +970,8 @@ window.HOSPITALS_DATA = [
         "외상": 10,
         "심장": 0,
         "소아": 23,
-        "일반": 40
+        "내과": 20,
+        "일반": 20
       },
       "surgery": 3
     },
@@ -931,6 +995,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 12
       },
       "surgery": 4
@@ -955,6 +1020,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 13
       },
       "surgery": 3
@@ -980,6 +1046,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 15
       },
       "surgery": 8
@@ -997,7 +1064,8 @@ window.HOSPITALS_DATA = [
     "specialties": [
       "일반",
       "외상",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -1005,7 +1073,8 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 14,
-        "일반": 24
+        "내과": 12,
+        "일반": 12
       },
       "surgery": 6
     },
@@ -1030,6 +1099,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 12
       },
       "surgery": 6
@@ -1055,6 +1125,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 4,
+        "내과": 0,
         "일반": 9
       },
       "surgery": 3
@@ -1081,6 +1152,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 18
       },
       "surgery": 4
@@ -1098,7 +1170,8 @@ window.HOSPITALS_DATA = [
     "specialties": [
       "일반",
       "외상",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -1106,7 +1179,8 @@ window.HOSPITALS_DATA = [
         "외상": 18,
         "심장": 0,
         "소아": 15,
-        "일반": 23
+        "내과": 19,
+        "일반": 4
       },
       "surgery": 13
     },
@@ -1123,7 +1197,8 @@ window.HOSPITALS_DATA = [
     "specialties": [
       "일반",
       "외상",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -1131,7 +1206,8 @@ window.HOSPITALS_DATA = [
         "외상": 16,
         "심장": 0,
         "소아": 10,
-        "일반": 18
+        "내과": 16,
+        "일반": 2
       },
       "surgery": 5
     },
@@ -1155,6 +1231,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 10
       },
       "surgery": 3
@@ -1180,6 +1257,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 6
       },
       "surgery": 3
@@ -1205,6 +1283,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 0
       },
       "surgery": 2
@@ -1231,6 +1310,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 11
       },
       "surgery": 10
@@ -1256,6 +1336,7 @@ window.HOSPITALS_DATA = [
         "외상": 0,
         "심장": 0,
         "소아": 0,
+        "내과": 0,
         "일반": 20
       },
       "surgery": 5
@@ -1273,7 +1354,8 @@ window.HOSPITALS_DATA = [
     "specialties": [
       "일반",
       "외상",
-      "소아"
+      "소아",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -1281,7 +1363,8 @@ window.HOSPITALS_DATA = [
         "외상": 27,
         "심장": 0,
         "소아": 28,
-        "일반": 25
+        "내과": 10,
+        "일반": 15
       },
       "surgery": 4
     },
@@ -1298,7 +1381,8 @@ window.HOSPITALS_DATA = [
     "specialties": [
       "일반",
       "외상",
-      "심장"
+      "심장",
+      "내과"
     ],
     "_egenSource": "hperyn(실측)",
     "resources": {
@@ -1306,7 +1390,8 @@ window.HOSPITALS_DATA = [
         "외상": 17,
         "심장": 0,
         "소아": 0,
-        "일반": 30
+        "내과": 10,
+        "일반": 20
       },
       "surgery": 4
     },
