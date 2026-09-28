@@ -1,0 +1,1395 @@
+[
+  {
+    "hpid": "A1100043",
+    "name": "강동경희대학교병원",
+    "shortName": "강동경희대학교병원",
+    "lat": 37.552046,
+    "lng": 127.157085,
+    "grade": "권역응급의료센터",
+    "capacity": 25,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 53,
+        "심장": 40,
+        "소아": 41,
+        "내과": 29,
+        "일반": 42
+      },
+      "surgery": 17
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100014",
+    "name": "고려대학교의과대학부속구로병원",
+    "shortName": "고려대학교의과대학부",
+    "lat": 37.492111,
+    "lng": 126.884745,
+    "grade": "권역응급의료센터",
+    "capacity": 40,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 16,
+        "심장": 0,
+        "소아": 23,
+        "내과": 20,
+        "일반": 45
+      },
+      "surgery": 24
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100017",
+    "name": "서울대학교병원",
+    "shortName": "서울대학교병원",
+    "lat": 37.579666,
+    "lng": 126.998963,
+    "grade": "권역응급의료센터",
+    "capacity": 42,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 23,
+        "심장": 16,
+        "소아": 64,
+        "내과": 10,
+        "일반": 65
+      },
+      "surgery": 53
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100035",
+    "name": "서울특별시서울의료원",
+    "shortName": "서울특별시서울의료원",
+    "lat": 37.612869,
+    "lng": 127.098091,
+    "grade": "권역응급의료센터",
+    "capacity": 27,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 25,
+        "심장": 9,
+        "소아": 3,
+        "내과": 7,
+        "일반": 11
+      },
+      "surgery": 10
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100005",
+    "name": "이화여자대학교의과대학부속목동병원",
+    "shortName": "이화여자대학교의과대",
+    "lat": 37.536543,
+    "lng": 126.886216,
+    "grade": "권역응급의료센터",
+    "capacity": 40,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 47,
+        "심장": 0,
+        "소아": 28,
+        "내과": 10,
+        "일반": 17
+      },
+      "surgery": 13
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100008",
+    "name": "학교법인고려중앙학원고려대학교의과대학부속병원(안암병원)",
+    "shortName": "고려중앙학원고려대학",
+    "lat": 37.587156,
+    "lng": 127.026471,
+    "grade": "권역응급의료센터",
+    "capacity": 45,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 24,
+        "심장": 19,
+        "소아": 41,
+        "내과": 16,
+        "일반": 16
+      },
+      "surgery": 25
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100013",
+    "name": "한양대학교병원",
+    "shortName": "한양대학교병원",
+    "lat": 37.559945,
+    "lng": 127.044883,
+    "grade": "권역응급의료센터",
+    "capacity": 35,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 15,
+        "심장": 0,
+        "소아": 14,
+        "내과": 12,
+        "일반": 75
+      },
+      "surgery": 16
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100011",
+    "name": "가톨릭대학교여의도성모병원",
+    "shortName": "가톨릭대학교여의도성",
+    "lat": 37.518272,
+    "lng": 126.936731,
+    "grade": "지역응급의료센터",
+    "capacity": 28,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 17,
+        "심장": 12,
+        "소아": 19,
+        "내과": 10,
+        "일반": 1
+      },
+      "surgery": 13
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1121013",
+    "name": "가톨릭대학교은평성모병원",
+    "shortName": "가톨릭대학교은평성모",
+    "lat": 37.633608,
+    "lng": 126.91615,
+    "grade": "지역응급의료센터",
+    "capacity": 36,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "fallback(dutyHano=777 × 0.0427)",
+    "resources": {
+      "icu": {
+        "외상": 22,
+        "심장": 12,
+        "소아": 19,
+        "내과": 16,
+        "일반": 33
+      },
+      "surgery": 19
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100006",
+    "name": "강북삼성병원",
+    "shortName": "강북삼성병원",
+    "lat": 37.568498,
+    "lng": 126.967938,
+    "grade": "지역응급의료센터",
+    "capacity": 20,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 16,
+        "심장": 20,
+        "소아": 34,
+        "내과": 28,
+        "일반": 29
+      },
+      "surgery": 16
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100002",
+    "name": "건국대학교병원",
+    "shortName": "건국대학교병원",
+    "lat": 37.540845,
+    "lng": 127.072123,
+    "grade": "지역응급의료센터",
+    "capacity": 27,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 25,
+        "심장": 4,
+        "소아": 16,
+        "내과": 24,
+        "일반": 1
+      },
+      "surgery": 21
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100001",
+    "name": "경희대학교병원",
+    "shortName": "경희대학교병원",
+    "lat": 37.593877,
+    "lng": 127.051832,
+    "grade": "지역응급의료센터",
+    "capacity": 25,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 15,
+        "심장": 0,
+        "소아": 18,
+        "내과": 18,
+        "일반": 78
+      },
+      "surgery": 16
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100052",
+    "name": "국립중앙의료원",
+    "shortName": "국립중앙의료원",
+    "lat": 37.56734,
+    "lng": 127.005795,
+    "grade": "지역응급의료센터",
+    "capacity": 30,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 20,
+        "심장": 0,
+        "소아": 4,
+        "내과": 0,
+        "일반": 15
+      },
+      "surgery": 7
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100048",
+    "name": "노원을지대학교병원",
+    "shortName": "노원을지대학교병원",
+    "lat": 37.636443,
+    "lng": 127.070003,
+    "grade": "지역응급의료센터",
+    "capacity": 22,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 16,
+        "심장": 0,
+        "소아": 10,
+        "내과": 16,
+        "일반": 29
+      },
+      "surgery": 11
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100010",
+    "name": "삼성서울병원",
+    "shortName": "삼성서울병원",
+    "lat": 37.488516,
+    "lng": 127.086682,
+    "grade": "지역응급의료센터",
+    "capacity": 60,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 35,
+        "심장": 48,
+        "소아": 73,
+        "내과": 28,
+        "일반": 22
+      },
+      "surgery": 46
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100021",
+    "name": "삼육서울병원",
+    "shortName": "삼육서울병원",
+    "lat": 37.587992,
+    "lng": 127.065329,
+    "grade": "지역응급의료센터",
+    "capacity": 29,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 34,
+        "심장": 30,
+        "소아": 4,
+        "내과": 10,
+        "일반": 16
+      },
+      "surgery": 5
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100040",
+    "name": "서울특별시보라매병원",
+    "shortName": "서울특별시보라매병원",
+    "lat": 37.493718,
+    "lng": 126.924049,
+    "grade": "지역응급의료센터",
+    "capacity": 39,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 35,
+        "심장": 12,
+        "소아": 19,
+        "내과": 15,
+        "일반": 9
+      },
+      "surgery": 14
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100028",
+    "name": "성심의료재단강동성심병원",
+    "shortName": "성심의료재단강동성심",
+    "lat": 37.535984,
+    "lng": 127.135264,
+    "grade": "지역응급의료센터",
+    "capacity": 28,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 17,
+        "심장": 0,
+        "소아": 3,
+        "내과": 18,
+        "일반": 24
+      },
+      "surgery": 13
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100054",
+    "name": "성애의료재단성애병원",
+    "shortName": "성애의료재단성애병원",
+    "lat": 37.51205,
+    "lng": 126.922367,
+    "grade": "지역응급의료센터",
+    "capacity": 34,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아",
+      "심장",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 49,
+        "심장": 24,
+        "소아": 32,
+        "내과": 24,
+        "일반": 33
+      },
+      "surgery": 5
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100004",
+    "name": "순천향대학교부속서울병원",
+    "shortName": "순천향대학교부속서울",
+    "lat": 37.533842,
+    "lng": 127.004418,
+    "grade": "지역응급의료센터",
+    "capacity": 27,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 27,
+        "심장": 10,
+        "소아": 13,
+        "내과": 14,
+        "일반": 53
+      },
+      "surgery": 14
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100015",
+    "name": "연세대학교의과대학강남세브란스병원",
+    "shortName": "연세대학교의과대학강",
+    "lat": 37.492807,
+    "lng": 127.046313,
+    "grade": "지역응급의료센터",
+    "capacity": 27,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 12,
+        "심장": 8,
+        "소아": 28,
+        "내과": 0,
+        "일반": 31
+      },
+      "surgery": 23
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100007",
+    "name": "연세대학교의과대학세브란스병원",
+    "shortName": "연세대학교의과대학세",
+    "lat": 37.562117,
+    "lng": 126.940828,
+    "grade": "지역응급의료센터",
+    "capacity": 53,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 53,
+        "심장": 40,
+        "소아": 76,
+        "내과": 29,
+        "일반": 33
+      },
+      "surgery": 3
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100041",
+    "name": "의료법인서울효천의료재단에이치플러스양지병원",
+    "shortName": "서울효천의료재단에이",
+    "lat": 37.484275,
+    "lng": 126.932539,
+    "grade": "지역응급의료센터",
+    "capacity": 21,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 28
+      },
+      "surgery": 7
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100020",
+    "name": "의료법인한전의료재단한일병원",
+    "shortName": "한전의료재단한일병원",
+    "lat": 37.646116,
+    "lng": 127.029024,
+    "grade": "지역응급의료센터",
+    "capacity": 27,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 22
+      },
+      "surgery": 8
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1120796",
+    "name": "이화여자대학교의과대학부속서울병원",
+    "shortName": "이화여자대학교의과대",
+    "lat": 37.557261,
+    "lng": 126.836266,
+    "grade": "지역응급의료센터",
+    "capacity": 31,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "fallback(dutyHano=858 × 0.0427)",
+    "resources": {
+      "icu": {
+        "외상": 34,
+        "심장": 30,
+        "소아": 24,
+        "내과": 10,
+        "일반": 18
+      },
+      "surgery": 19
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100016",
+    "name": "인제대학교상계백병원",
+    "shortName": "인제대학교상계백병원",
+    "lat": 37.648581,
+    "lng": 127.063116,
+    "grade": "지역응급의료센터",
+    "capacity": 23,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 18,
+        "심장": 0,
+        "소아": 15,
+        "내과": 19,
+        "일반": 21
+      },
+      "surgery": 13
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100009",
+    "name": "재단법인아산사회복지재단서울아산병원",
+    "shortName": "아산사회복지재단서울",
+    "lat": 37.526564,
+    "lng": 127.108238,
+    "grade": "지역응급의료센터",
+    "capacity": 73,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 49,
+        "심장": 24,
+        "소아": 89,
+        "내과": 24,
+        "일반": 72
+      },
+      "surgery": 4
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100003",
+    "name": "중앙대학교병원",
+    "shortName": "중앙대학교병원",
+    "lat": 37.507074,
+    "lng": 126.960794,
+    "grade": "지역응급의료센터",
+    "capacity": 31,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 17,
+        "심장": 0,
+        "소아": 25,
+        "내과": 12,
+        "일반": 17
+      },
+      "surgery": 16
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100012",
+    "name": "학교법인가톨릭학원가톨릭대학교서울성모병원",
+    "shortName": "가톨릭학원가톨릭대학",
+    "lat": 37.501801,
+    "lng": 127.004727,
+    "grade": "지역응급의료센터",
+    "capacity": 43,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 39,
+        "심장": 18,
+        "소아": 55,
+        "내과": 22,
+        "일반": 23
+      },
+      "surgery": 32
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100053",
+    "name": "한국보훈복지의료공단중앙보훈병원",
+    "shortName": "한국보훈복지의료공단",
+    "lat": 37.528221,
+    "lng": 127.146719,
+    "grade": "지역응급의료센터",
+    "capacity": 25,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 27,
+        "심장": 10,
+        "소아": 0,
+        "내과": 14,
+        "일반": 20
+      },
+      "surgery": 13
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100055",
+    "name": "한림대학교강남성심병원",
+    "shortName": "한림대학교강남성심병",
+    "lat": 37.493249,
+    "lng": 126.908673,
+    "grade": "지역응급의료센터",
+    "capacity": 28,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 25,
+        "심장": 10,
+        "소아": 12,
+        "내과": 21,
+        "일반": 7
+      },
+      "surgery": 14
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100039",
+    "name": "경찰병원",
+    "shortName": "경찰병원",
+    "lat": 37.496413,
+    "lng": 127.123488,
+    "grade": "지역응급의료기관",
+    "capacity": 11,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 25,
+        "심장": 0,
+        "소아": 16,
+        "내과": 24,
+        "일반": 16
+      },
+      "surgery": 7
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100026",
+    "name": "구로성심병원",
+    "shortName": "구로성심병원",
+    "lat": 37.499646,
+    "lng": 126.86636,
+    "grade": "지역응급의료기관",
+    "capacity": 15,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 13,
+        "내과": 0,
+        "일반": 21
+      },
+      "surgery": 3
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1122033",
+    "name": "기쁨병원",
+    "shortName": "기쁨병원",
+    "lat": 37.482713,
+    "lng": 127.018063,
+    "grade": "지역응급의료기관",
+    "capacity": 8,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아",
+      "심장"
+    ],
+    "_egenSource": "fallback(dutyHano=110 × 0.0427)",
+    "resources": {
+      "icu": {
+        "외상": 16,
+        "심장": 8,
+        "소아": 20,
+        "내과": 0,
+        "일반": 29
+      },
+      "surgery": 8
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100044",
+    "name": "녹색병원",
+    "shortName": "녹색병원",
+    "lat": 37.583621,
+    "lng": 127.086055,
+    "grade": "지역응급의료기관",
+    "capacity": 13,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 10,
+        "심장": 0,
+        "소아": 23,
+        "내과": 20,
+        "일반": 20
+      },
+      "surgery": 3
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100037",
+    "name": "대림성모병원",
+    "shortName": "대림성모병원",
+    "lat": 37.490689,
+    "lng": 126.907169,
+    "grade": "지역응급의료기관",
+    "capacity": 11,
+    "specialties": [
+      "일반",
+      "외상"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 12
+      },
+      "surgery": 4
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100024",
+    "name": "명지성모병원",
+    "shortName": "명지성모병원",
+    "lat": 37.493851,
+    "lng": 126.899254,
+    "grade": "지역응급의료기관",
+    "capacity": 10,
+    "specialties": [
+      "일반",
+      "외상"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 13
+      },
+      "surgery": 3
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100036",
+    "name": "부민병원",
+    "shortName": "부민병원",
+    "lat": 37.556941,
+    "lng": 126.85095,
+    "grade": "지역응급의료기관",
+    "capacity": 12,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 15
+      },
+      "surgery": 8
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100050",
+    "name": "서울성심병원",
+    "shortName": "서울성심병원",
+    "lat": 37.584191,
+    "lng": 127.049838,
+    "grade": "지역응급의료기관",
+    "capacity": 23,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 14,
+        "내과": 12,
+        "일반": 12
+      },
+      "surgery": 6
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100029",
+    "name": "서울적십자병원",
+    "shortName": "서울적십자병원",
+    "lat": 37.567155,
+    "lng": 126.966999,
+    "grade": "지역응급의료기관",
+    "capacity": 13,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 12
+      },
+      "surgery": 6
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100022",
+    "name": "서울특별시동부병원",
+    "shortName": "서울특별시동부병원",
+    "lat": 37.575399,
+    "lng": 127.031403,
+    "grade": "지역응급의료기관",
+    "capacity": 14,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 4,
+        "내과": 0,
+        "일반": 9
+      },
+      "surgery": 3
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100223",
+    "name": "서울특별시서남병원",
+    "shortName": "서울특별시서남병원",
+    "lat": 37.512019,
+    "lng": 126.83313,
+    "grade": "지역응급의료기관",
+    "capacity": 20,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 18
+      },
+      "surgery": 4
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100032",
+    "name": "세란병원",
+    "shortName": "세란병원",
+    "lat": 37.57534,
+    "lng": 126.957707,
+    "grade": "지역응급의료기관",
+    "capacity": 16,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 18,
+        "심장": 0,
+        "소아": 15,
+        "내과": 19,
+        "일반": 4
+      },
+      "surgery": 13
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100045",
+    "name": "씨엠병원",
+    "shortName": "씨엠병원",
+    "lat": 37.518848,
+    "lng": 126.90368,
+    "grade": "지역응급의료기관",
+    "capacity": 11,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 16,
+        "심장": 0,
+        "소아": 10,
+        "내과": 16,
+        "일반": 2
+      },
+      "surgery": 5
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100025",
+    "name": "의료법인동신의료재단동신병원",
+    "shortName": "동신의료재단동신병원",
+    "lat": 37.581104,
+    "lng": 126.936583,
+    "grade": "지역응급의료기관",
+    "capacity": 12,
+    "specialties": [
+      "일반",
+      "외상"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 10
+      },
+      "surgery": 3
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100023",
+    "name": "의료법인청구성심병원",
+    "shortName": "청구성심병원",
+    "lat": 37.620792,
+    "lng": 126.919554,
+    "grade": "지역응급의료기관",
+    "capacity": 11,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 6
+      },
+      "surgery": 3
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100075",
+    "name": "의료법인풍산의료재단동부제일병원",
+    "shortName": "풍산의료재단동부제일",
+    "lat": 37.600676,
+    "lng": 127.109029,
+    "grade": "지역응급의료기관",
+    "capacity": 8,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 0
+      },
+      "surgery": 2
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100027",
+    "name": "한국원자력의학원원자력병원",
+    "shortName": "한국원자력의학원원자",
+    "lat": 37.628816,
+    "lng": 127.082693,
+    "grade": "지역응급의료기관",
+    "capacity": 12,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "소아"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 11
+      },
+      "surgery": 10
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100051",
+    "name": "혜민병원",
+    "shortName": "혜민병원",
+    "lat": 37.535316,
+    "lng": 127.083601,
+    "grade": "지역응급의료기관",
+    "capacity": 10,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 0,
+        "심장": 0,
+        "소아": 0,
+        "내과": 0,
+        "일반": 20
+      },
+      "surgery": 5
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100019",
+    "name": "홍익병원",
+    "shortName": "홍익병원",
+    "lat": 37.528441,
+    "lng": 126.863664,
+    "grade": "지역응급의료기관",
+    "capacity": 20,
+    "specialties": [
+      "일반",
+      "외상",
+      "소아",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 27,
+        "심장": 0,
+        "소아": 28,
+        "내과": 10,
+        "일반": 15
+      },
+      "surgery": 4
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  },
+  {
+    "hpid": "A1100049",
+    "name": "희명병원",
+    "shortName": "희명병원",
+    "lat": 37.455671,
+    "lng": 126.900563,
+    "grade": "지역응급의료기관",
+    "capacity": 12,
+    "specialties": [
+      "일반",
+      "외상",
+      "심장",
+      "내과"
+    ],
+    "_egenSource": "hperyn(실측)",
+    "resources": {
+      "icu": {
+        "외상": 17,
+        "심장": 0,
+        "소아": 0,
+        "내과": 10,
+        "일반": 20
+      },
+      "surgery": 4
+    },
+    "_bedDetailSource": "manual(응급똑똑 실측, 2026-09)"
+  }
+]
