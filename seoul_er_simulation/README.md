@@ -557,8 +557,9 @@ sim.js 로직만 구동. (1) 저부하(발생 45~47명): 두 모드 모두 오�
    `JSON.stringify`해서 `data/egen_raw.json`으로 저장하고, `python
    scripts/1c_apply_egen_data.py`를 실행해 `hospitals.json`/`hospitals.data.js`에
    반영합니다. (이 단계를 건너뛰면 1단계의 등급별 합성값이 그대로 남습니다.)
-1-2. (중환자실·수술실 자원 반영, API 불필요) `data/manual_bed_detail.xlsx`는 이미 이
-   저장소에 있으므로 바로 `python scripts/1d_extract_manual_bed_detail.py`를 실행해
+1-2. (중환자실·수술실 자원 반영, API 불필요) `.gitignore`의 `*.xlsx` 규칙 때문에
+   `data/manual_bed_detail.xlsx`는 저장소에 없습니다. 최상위 폴더의 `서울_응급실_병상데이터.xlsx`
+   (내용 동일)를 `data/manual_bed_detail.xlsx`로 복사한 뒤 `python scripts/1d_extract_manual_bed_detail.py`를 실행해
    `data/bed_detail_raw.json`을 만들고, 이어서 `python scripts/1e_apply_manual_bed_detail.py`
    를 실행해 `hospitals.json`/`hospitals.data.js`에 반영합니다.
 2. `python scripts/2_generate_route_plan.py`
