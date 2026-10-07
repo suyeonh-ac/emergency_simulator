@@ -4,7 +4,14 @@
 
 (function(){
 
-  var SPECIALTIES = ['외상','심장','소아','일반','내과'];
+  // 2026-10-07, 10차: 환자 진료계열을 병원 ICU 컬럼과 1:1로 맞춘 9종 + ICU가 필요 없는
+  // 환자용 응급실 2종으로 바꿨다(기존 외상/심장/소아/일반/내과 묶음은 더 쓰지 않음).
+  // 외상·음압격리·화상은 범위 밖. 병원별 값은 data/hospital_icu_columns.data.js
+  // (scripts/6d, bed_detail_raw.json에서 직접 추출 — 1e의 icu_buckets()는 그대로 둠).
+  var ICU_TYPES = ['신생아','소아','일반','내과','외과','신경외과','심장내과','흉부외과','신경과'];
+  var ER_TYPES = ['응급_성인','응급_소아'];
+  var SPECIALTIES = ICU_TYPES.concat(ER_TYPES);
+  function zeroIcuMap(){ var o={}; ICU_TYPES.forEach(function(k){ o[k]=0; }); return o; }
 
   // 2026-09-28, 8차: 51개 병원 전체 중환자실 병상을 합산해보니 내과 단독(587병상)·
   // 외과 단독(543병상)이 이미 심장 버킷 전체(심장내과+흉부외과=404병상)보다 컸는데,
@@ -23,7 +30,9 @@
   // 2026-09-28, 9차: WAITING과 TRANSIT 사이에 CONTACTING을 추가 — 병원에 순차적으로
   // 문의(접촉)하는 과정 자체를 상태로 표현한다. 아래 "9차 업데이트" 섹션과
   // README.md의 "배정 로직 고도화 — 순차 탐색 모델" 섹션 참고.
-  var PATIENT_STATUS = { WAITING: 'waiting', CONTACTING: 'contacting', TRANSIT: 'transit', TREATING: 'treating', FAILED: 'failed' };
+  // 2026-10-07, 10차: 응급실 퇴실 이후 단계를 추가 — SURGERY(수술실 점유), ICU_STAY(중환자실
+  // 재실). TREATING은 이제 "응급실 병상 점유(응급실 재실시간)"만 뜻한다.
+  var PATIENT_STATUS = { WAITING: 'waiting', CONTACTING: 'contacting', TRANSIT: 'transit', TREATING: 'treating', SURGERY: 'surgery', ICU_STAY: 'icu', FAILED: 'failed' };
 
   // 2026-09-28, 9차: 배정 방식 두 가지를 화면에서 토글하기 위한 모드.
   // SEQUENTIAL(기본) — 가까운 병원부터 한 곳씩 문의, 그 시점 실제 자원으로 즉석 판정.
@@ -87,90 +96,29 @@
     ROUTE_CACHE[r.o+'_'+r.h] = r;
   });
 
-  // 2026-09-28, 8차 — 질병군(소아·외상이 아닌 나머지) 환자를 내과/일반/심장 세
-  // 버킷에 배분하는 가중치. 서울/전국 단위 "상병별 응급실 이용" 실측 통계가 없어서
-  // (엑셀 두 개·응급의료 통계연보 모두 확인함, 진단명 분포 데이터 없음), 각 병원이
-  // 신고한 중환자실 병상 규모(icu.내과/icu.일반/icu.심장 합계)에 비례해서 배분한다
-  // — "실제 유병률"이 아니라 "병상 공급량을 대리변수로 쓴 가정"임을 분명히 밝혀둔다.
-  // 병상 규모가 바뀌면(데이터 갱신 시) 이 가중치도 자동으로 같이 바뀐다.
-  var DISEASE_SPECIALTY_WEIGHTS = (function(){
-    var totals = {일반:0, 내과:0, 심장:0};
-    HOSPITALS_DATA.forEach(function(h){
-      var icu = (h.resources && h.resources.icu) || {};
-      totals.일반 += Number(icu.일반)||0;
-      totals.내과 += Number(icu.내과)||0;
-      totals.심장 += Number(icu.심장)||0;
-    });
-    var sum = totals.일반 + totals.내과 + totals.심장;
-    if(!(sum>0)) throw new Error('DISEASE_SPECIALTY_WEIGHTS 합이 0입니다 — hospitals.json의 resources.icu를 확인하세요.');
-    return { 일반: totals.일반/sum, 내과: totals.내과/sum, 심장: totals.심장/sum };
-  })();
+  // 2026-10-07, 10차 — 확률표·병원 ICU 컬럼은 별도 데이터 파일에서 주입된다.
+  var PATIENT_PROBABILITIES = window.PATIENT_PROBABILITIES;
+  var HOSPITAL_ICU_COLUMNS = window.HOSPITAL_ICU_COLUMNS;
+  if(!PATIENT_PROBABILITIES || !HOSPITAL_ICU_COLUMNS || typeof window.createPatientProfileSampler !== 'function'){
+    throw new Error('10차 데이터가 없습니다 — index.html에서 data/patient_probabilities.data.js, data/hospital_icu_columns.data.js, patient_profile_sampler.js 를 sim.js 앞에 로드하세요.');
+  }
+  var patientSampler = window.createPatientProfileSampler(PATIENT_PROBABILITIES);
 
   // ============================================================
-  // 수연 담당 — 환자 발생 에이전트 모델링 (2026-09-21, 수연 실제 구현 반영)
-  // 통계 확률·연령군·중증도·발생 위치·발생 간격은 전부 이 섹션에서 다룸.
-  // 출처: 2024 응급의료 통계연보 서울 NEDIS 통계. 자세한 방법론은 수연님이
-  // 공유한 원본 주석 참고.
+  // 환자 발생 에이전트 모델링 (2026-10-07, 10차 — 통계연보 확률표로 교체)
+  // 출처: 2024 응급의료 통계연보(제23호) 서울 편 표 3·8·9·11·12 + HIRA 중환자실 평가 등.
+  // 확률표 생성: scripts/6_build_patient_probabilities.py → data/patient_probabilities.json
+  // 실측/가정 구분: docs/10차_환자발생_확률표.md
+  //  - 환자 프로필 분포: 119구급차 내원 모집단(표 8)
+  //  - 도착률: 전체 내원 건수(800,599건/366일) × 시간대 비중(표 3), 요일·월 배율은 쓰지 않음
+  // 이전 8·9차의 AGE_KTAS_JOINT_COUNTS / CASE_TYPE_COUNTS_BY_AGE /
+  // RESOURCE_NEED_PROBABILITIES_BY_KTAS / DISEASE_SPECIALTY_WEIGHTS / ARRIVAL_DAY_COUNTS 는
+  // 이 확률표로 대체되어 삭제했다(질병/손상 구분과 외상 진료계열도 함께 없어짐).
   // ============================================================
-
-  // 연령군×KTAS 결합빈도 — '기타/미상' 제외 후 재정규화.
-  var AGE_KTAS_JOINT_COUNTS = [
-    {ageGroup:'infant',ktasLevel:1,count:112},
-    {ageGroup:'infant',ktasLevel:2,count:3410},
-    {ageGroup:'infant',ktasLevel:3,count:10366},
-    {ageGroup:'infant',ktasLevel:4,count:2670},
-    {ageGroup:'infant',ktasLevel:5,count:395},
-    {ageGroup:'pediatric',ktasLevel:1,count:559},
-    {ageGroup:'pediatric',ktasLevel:2,count:6084},
-    {ageGroup:'pediatric',ktasLevel:3,count:61196},
-    {ageGroup:'pediatric',ktasLevel:4,count:28707},
-    {ageGroup:'pediatric',ktasLevel:5,count:3783},
-    {ageGroup:'adult',ktasLevel:1,count:4939},
-    {ageGroup:'adult',ktasLevel:2,count:33522},
-    {ageGroup:'adult',ktasLevel:3,count:217967},
-    {ageGroup:'adult',ktasLevel:4,count:102988},
-    {ageGroup:'adult',ktasLevel:5,count:29753},
-    {ageGroup:'elderly',ktasLevel:1,count:9640},
-    {ageGroup:'elderly',ktasLevel:2,count:43021},
-    {ageGroup:'elderly',ktasLevel:3,count:175260},
-    {ageGroup:'elderly',ktasLevel:4,count:49962},
-    {ageGroup:'elderly',ktasLevel:5,count:16159}
-  ];
-
-  // 연령군별 질병/손상 빈도. 두 항목 외 기타/미상은 제외하고 재정규화.
-  var CASE_TYPE_COUNTS_BY_AGE = {
-    infant:{disease:14106,injury:2844},
-    pediatric:{disease:76016,injury:24311},
-    adult:{disease:314015,injury:75122},
-    elderly:{disease:257051,injury:36900}
-  };
-
-  // 응급실 전체 내원자를 분모로 한 중환자실/수술·시술 후 입원 필요의 결합확률.
-  // surgery는 통계연보의 '수술 또는 시술 후 병실/중환자실 입원'을 대리변수로 사용.
-  var RESOURCE_NEED_PROBABILITIES_BY_KTAS = {
-    critical:{icuOnly:16544/101287,surgeryOnly:992/101287,both:4506/101287,neither:79245/101287},
-    urgent:{icuOnly:11512/464791,surgeryOnly:4199/464791,both:2544/464791,neither:446536/464791},
-    less_urgent:{icuOnly:710/234417,surgeryOnly:598/234417,both:158/234417,neither:232951/234417}
-  };
-
-  // 시간대·요일별 내원 빈도 — 비균질 포아송 도착 간격 계산용.
-  var ANNUAL_ED_VISIT_COUNT = 800599;
-  var ANNUAL_DAY_COUNT = 366;
-  var ARRIVAL_TIME_COUNTS = [
-    {startHour:0,endHour:3,count:69887},
-    {startHour:3,endHour:6,count:47677},
-    {startHour:6,endHour:9,count:69386},
-    {startHour:9,endHour:12,count:133538},
-    {startHour:12,endHour:15,count:125498},
-    {startHour:15,endHour:18,count:120522},
-    {startHour:18,endHour:21,count:121681},
-    {startHour:21,endHour:24,count:112410}
-  ];
-  // JavaScript Date 규칙: 0=일요일, 1=월요일, ... 6=토요일
-  var ARRIVAL_DAY_COUNTS = [125623,123744,110524,107087,107471,110510,115640];
-  var SIMULATION_START_HOUR = 0;
-  var SIMULATION_START_DAY_OF_WEEK = 1;
+  var SIMULATION_START_HOUR = 0;   // 11차: 실측 스냅샷으로 시작하면 스냅샷 시각으로 바뀜 (seedInitialState)
   var PATIENT_DEMAND_MULTIPLIER = 1;
+  // 시작 시 ICU 가동률 기본값(Cho et al. 2021, 전국 2019년 72.9%) — 화면 입력칸으로 조절
+  var DEFAULT_ICU_INITIAL_OCCUPANCY = PATIENT_PROBABILITIES.icuInitialOccupancy.default;
 
   // 환자 발생 위치 모듈 (수연 담당)
   // 현재 populationWeight=1은 실제 생활인구 자료가 연결되기 전의 검증용 기본값이다.
@@ -278,11 +226,12 @@
   // 34~51곳, 아래 9차 섹션 참고)가 이보다 항상 많아서 실제로는 후보를 다 소진하고
   // 처음으로 되돌아가는 경우가 거의 없다.
   var CONTACT_ATTEMPT_SEC = 30;
-  var TREAT_MIN_SEC = 1800, TREAT_MAX_SEC = 5400;
+  // 10차: 고정 치료시간(TREAT_MIN/MAX_SEC, 30–90분 균등)은 응급실 재실시간·수술실·ICU 분포로 대체되어 삭제
   var AVG_SPEED_KMH = 19.5;                      // 캐시에 없는 구간의 직선 근사용 평균 속도 (카카오 실측 128구간 평균 19.5km/h 기반)
   var CONGESTION_MIN = 0.85, CONGESTION_MAX = 1.25;
   var FAILED_LINGER_REAL_SEC = 2.5;
-  var SPEED_LEVELS = [20, 45, 90, 180, 360];
+  // 10차: ICU 재실이 일 단위라 고배속 추가 (3600배속 = 실제 1초에 1시간)
+  var SPEED_LEVELS = [20, 45, 90, 180, 360, 900, 1800, 3600];
   var DEFAULT_SPEED_INDEX = 2;
 
   var COLOR_WAITING = '#8B94A7';
@@ -385,12 +334,23 @@
     }).addTo(map);
     marker.bindTooltip(h.shortName + ' (' + GRADE_LABEL[h.grade] + ') · 0/' + h.capacity, {direction:'top', offset:[0,-radius-2]});
     marker.bindPopup('');
+    // 2026-10-07, 10차 — ICU는 9종 컬럼(hospital_icu_columns)으로, 진료계열(specialties)은
+    // "그 ICU 병상이 있으면 표방" + 응급_성인(모든 병원) + 응급_소아(소아 응급실 병상이 있는
+    // 병원만, 2026-10-07 결정)으로 다시 만든다. 응급실 capacity·수술실은 기존 값 그대로.
+    var cols = HOSPITAL_ICU_COLUMNS[h.hpid];
+    if(!cols) throw new Error('hospital_icu_columns에 '+h.hpid+' '+h.name+' 이 없습니다 — scripts/6d를 다시 실행하세요.');
+    var icu = zeroIcuMap();
+    ICU_TYPES.forEach(function(k){ icu[k] = Number(cols.icu[k])||0; });
+    var specialties = ICU_TYPES.filter(function(k){ return icu[k] > 0; });
+    specialties.push('응급_성인');
+    if(cols.erPediatricBeds > 0) specialties.push('응급_소아');
     return {
-      name:h.name, shortName:h.shortName, grade:h.grade, lat:h.lat, lng:h.lng,
-      capacity:h.capacity, specialties:h.specialties, occupied:0, marker:marker, radius:radius,
+      hpid:h.hpid, name:h.name, shortName:h.shortName, grade:h.grade, lat:h.lat, lng:h.lng,
+      capacity:h.capacity, specialties:specialties, occupied:0, marker:marker, radius:radius,
       barEl:null, countEl:null,
-      resources: h.resources || {icu:{외상:0,심장:0,소아:0,일반:0,내과:0}, surgery:0},
-      occupiedICU: {외상:0, 심장:0, 소아:0, 일반:0, 내과:0}, occupiedOR: 0,
+      erPediatricBeds: cols.erPediatricBeds,
+      resources: {icu: icu, surgery: (h.resources && h.resources.surgery) || 0},
+      occupiedICU: zeroIcuMap(), occupiedOR: 0,
       resEl:null
     };
   });
@@ -469,14 +429,27 @@
   // 주지 않음 — isHospitalEligible()의 리턴값만 실제 판정에 쓰인다).
   function hospitalRejectionReason(patient, hospital){
     if(hospital.occupied >= hospital.capacity) return '응급실 병상 부족';
-    if(hospital.specialties.indexOf(patient.requiredSpecialty) === -1) return '진료과 미표방';
-    if(patient.needsICU && hospital.occupiedICU[patient.requiredSpecialty] >= hospital.resources.icu[patient.requiredSpecialty]) return '중환자실 부족';
+    if(hospital.specialties.indexOf(patient.requiredSpecialty) === -1){
+      return patient.requiredSpecialty === '응급_소아' ? '소아 응급실 없음' : (patient.requiredSpecialty+' 중환자실 없음');
+    }
+    if(patient.needsICU && hospital.occupiedICU[patient.requiredSpecialty] >= hospital.resources.icu[patient.requiredSpecialty]) return patient.requiredSpecialty+' 중환자실 부족';
     if(patient.needsSurgery && hospital.occupiedOR >= hospital.resources.surgery) return '수술실 부족';
     return '알 수 없음';
   }
 
   var bounds = L.latLngBounds(hospitals.map(function(h){ return [h.lat,h.lng]; }));
   map.fitBounds(bounds, {padding:[40,40]});
+
+  // 2026-10-07, 10차 — 진료계열이 11종으로 늘어 목록에는 요약만 보여준다(전체는 팝업).
+  function specSummary(hos){
+    var icuKinds = ICU_TYPES.filter(function(k){ return hos.resources.icu[k] > 0; });
+    return 'ICU '+icuKinds.length+'종'+(hos.erPediatricBeds>0 ? ' · 소아응급 '+hos.erPediatricBeds+'병상' : ' · 소아응급 없음');
+  }
+  function icuDetail(hos){
+    return ICU_TYPES.filter(function(k){ return hos.resources.icu[k] > 0; }).map(function(k){
+      return k+' '+hos.occupiedICU[k]+'/'+hos.resources.icu[k];
+    }).join(', ');
+  }
 
   var hospitalListEl = document.getElementById('hospitalList');
   hospitals.forEach(function(hos, idx){
@@ -486,7 +459,7 @@
     item.innerHTML =
       '<div class="hospital-top"><span class="hospital-name">'+hos.name+'</span>'+
       '<span class="hospital-count" id="hcount-'+idx+'">0/'+hos.capacity+'</span></div>'+
-      '<div class="hospital-specs">'+GRADE_LABEL[hos.grade]+' · '+hos.specialties.join(' · ')+'</div>'+
+      '<div class="hospital-specs">'+GRADE_LABEL[hos.grade]+' · '+specSummary(hos)+'</div>'+
       '<div class="hospital-bar-track"><div class="hospital-bar-fill" id="hbar-'+idx+'" style="width:0%"></div></div>'+
       '<div class="hospital-resource" id="hres-'+idx+'">ICU 0/'+icuCap+' · 수술실 0/'+orCap+'</div>';
     hospitalListEl.appendChild(item);
@@ -502,9 +475,10 @@
     var icuCap = icuTotal(hos), icuOcc = occupiedICUTotal(hos), orCap = hos.resources.surgery, orOcc = hos.occupiedOR;
     hos.marker.setStyle({color:color, fillColor:color});
     hos.marker.setTooltipContent(hos.shortName + ' (' + GRADE_LABEL[hos.grade] + ') · ' + hos.occupied + '/' + hos.capacity);
-    hos.marker.setPopupContent(hos.name+'<br>'+GRADE_LABEL[hos.grade]+' · '+hos.specialties.join(', ')+
+    hos.marker.setPopupContent(hos.name+'<br>'+GRADE_LABEL[hos.grade]+' · '+specSummary(hos)+
       '<br>응급실 병상 '+hos.occupied+'/'+hos.capacity+
-      '<br>중환자실(ICU) '+icuOcc+'/'+icuCap+' · 수술실 '+orOcc+'/'+orCap);
+      '<br>중환자실(ICU) '+icuOcc+'/'+icuCap+' · 수술실 '+orOcc+'/'+orCap+
+      '<br><span style="font-size:11px">'+icuDetail(hos)+'</span>');
     hos.barEl.style.width = Math.min(100, ratio*100) + '%';
     hos.barEl.style.background = color;
     hos.countEl.textContent = hos.occupied + '/' + hos.capacity;
@@ -513,10 +487,12 @@
   hospitals.forEach(function(_, idx){ updateHospitalVisual(idx); });
 
   var eventLogEl = document.getElementById('eventLog');
+  // 10차: 재실시간이 시간·일 단위가 되어 "N일 HH:MM:SS"로 표시
   function formatSimTime(sec){
-    var m = Math.floor(sec/60);
-    var s = Math.floor(sec%60);
-    return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+    var d = Math.floor(sec/86400), rem = sec - d*86400;
+    var h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = Math.floor(rem%60);
+    function two(x){ return (x<10?'0':'')+x; }
+    return (d>0 ? d+'일 ' : '')+two(h)+':'+two(m)+':'+two(s);
   }
   function logEvent(text){
     var line = document.createElement('div');
@@ -528,12 +504,17 @@
   var patients = [];
   var patientIdCounter = 0;
   var spawnCount=0, treatedCount=0, failCount=0;
+  // 2026-10-07, 10차 — 응급실 퇴실 수·평균 응급실 체류시간(대기 포함), 수술실 대기 발생 수
+  var erDischargeCount=0, totalErStaySec=0, orWaitStartCount=0;
+  // 검증·분석용 집계 (화면에는 안 보이고 window.SIM_DEBUG.getState()로 꺼내 봄)
+  var debugCounts = {reject:{}, failBySpecialty:{}, spawnBySpecialty:{}};
   var totalTransitDurationSec=0, transitCountForAvg=0;
   // 2026-09-28, 9차 — 탐색(문의) 비용 통계: 배정 성공까지 걸린 시도 횟수와, 발생부터
   // 배정 확정까지 걸린 시간(=waitElapsed, WAITING+CONTACTING 합)을 이송 시간과 분리해서 본다.
   var totalContactAttempts=0, totalSearchDurationSec=0, searchCountForAvg=0;
+  var simTime=0;
   applySeed(readSeedFromInput());
-  var simTime=0, spawnTimer=getNextArrivalIntervalSec(0);
+  var spawnTimer=getNextArrivalIntervalSec(0);
   var playing=false;
 
   // 2026-09-28, 9차 — 배정 확정 시 공통으로 필요한 부수효과(점유 갱신·시각화·통계)를
@@ -543,8 +524,10 @@
   function assignPatientToHospital(p, hospitalIdx, attempts){
     var hos = hospitals[hospitalIdx];
     hos.occupied++;
+    // ICU는 배정 시점에 확보해서 응급실 체류·수술 동안에도 잡아 둔다(병상 예약).
+    // 2026-10-07, 10차: 수술실은 배정 때 잡지 않고 응급실 퇴실 후 실제 수술 시간 동안만 점유한다.
+    // isHospitalEligible()의 "수술실 여유" 판정은 그대로 "지금 수술 중이 아닌 방이 있는가"로 읽힌다.
     if(p.needsICU){ hos.occupiedICU[p.requiredSpecialty]++; }
-    if(p.needsSurgery){ hos.occupiedOR++; }
     updateHospitalVisual(hospitalIdx);
     p.hospitalIdx = hospitalIdx;
     p.finalContactAttempts = attempts;
@@ -560,8 +543,36 @@
     p.removeInReal = FAILED_LINGER_REAL_SEC;
     p.marker.setStyle({color:COLOR_FAILED, fillColor:COLOR_FAILED});
     p.marker.setPopupContent('배정 실패 · '+reasonText);
+    p.failReason = reasonText;
     failCount++;
+    debugCounts.failBySpecialty[p.requiredSpecialty] = (debugCounts.failBySpecialty[p.requiredSpecialty]||0)+1;
     logEvent('환자 #'+p.id+' 배정 실패 - '+reasonText);
+  }
+
+  // 2026-10-07 — 이동 중인 환자 위에 마우스를 올리면 뜨는 툴팁. 열려 있는 동안 updatePatients()가
+  // 매 프레임 다시 그려서 남은 시간·문의 병원이 실시간으로 바뀐다.
+  var STATUS_LABEL = {waiting:'대기', contacting:'병원 문의 중', transit:'이송 중', failed:'배정 실패'};
+  function minText(sec){ return Math.max(0, Math.round(sec/60))+'분'; }
+  function patientTooltipHtml(p){
+    var lines = [
+      '<b>환자 #'+p.id+'</b> · '+(STATUS_LABEL[p.status]||p.status),
+      'KTAS '+p.ktasLevel+' · '+AGE_LABEL[p.ageGroup],
+      '필요 진료과: '+p.requiredSpecialty+(p.needsICU?' · ICU('+p.icuType+')':'')+(p.needsSurgery?' · 수술':'')
+    ];
+    if(p.status === PATIENT_STATUS.CONTACTING && p.candidateList && p.candidateList.length){
+      var ch = hospitals[p.candidateList[p.candidateIdx % p.candidateList.length]];
+      lines.push('문의: '+ch.shortName+' ('+(p.contactAttempts+1)+'번째 · 후보 '+p.candidateList.length+'곳)');
+      lines.push('탐색 경과 '+minText(p.waitElapsed)+' / 한도 '+minText(WAIT_TIMEOUT_SEC));
+    } else if(p.status === PATIENT_STATUS.TRANSIT && p.route){
+      lines.push('→ '+hospitals[p.hospitalIdx].shortName+' · 남은 '+minText(p.route.durationSec - p.elapsed)+
+        ' / '+minText(p.route.durationSec)+' · '+(p.route.distanceM/1000).toFixed(1)+'km'+(p.route.approx?' (직선 근사)':''));
+      lines.push('문의 '+(p.finalContactAttempts||1)+'회 · 탐색 '+minText(p.waitElapsed));
+    } else if(p.status === PATIENT_STATUS.FAILED){
+      lines.push(p.failReason || '');
+    } else {
+      lines.push('대기 '+minText(p.waitElapsed));
+    }
+    return lines.join('<br>');
   }
 
   // 2026-09-28, 9차 — CONTACTING 상태에서 "지금 어느 병원에 문의 중인지" 팝업에 보여준다.
@@ -606,29 +617,40 @@
   // 통계 테이블은 파일 상단 "수연 담당" 섹션 참고.
   // ============================================================
 
+  // 2026-10-07, 10차 — 확률표 구조 점검. 숫자 자체의 검증(합계·IPF 재현)은
+  // scripts/6b_validate_patient_probabilities.py 에서 하고, 여기서는 "로드된 표가 이 코드와
+  // 맞물리는지"(확률 합 1, 키 누락, 병원 쪽 진료계열 존재)만 본다.
   function validatePatientProbabilities(){
     var errors=[];
-    var jointTotal=0;
-    AGE_KTAS_JOINT_COUNTS.forEach(function(row){
-      if(!row.ageGroup || row.ktasLevel<1 || row.ktasLevel>5 || !(row.count>=0)) errors.push('AGE_KTAS_JOINT_COUNTS 항목 오류');
-      jointTotal+=Number(row.count)||0;
+    var T=PATIENT_PROBABILITIES;
+    function sumIs1(obj, name){
+      var vals = Array.isArray(obj) ? obj : Object.keys(obj).map(function(k){ return obj[k]; });
+      var s = vals.reduce(function(a,b){ return a+b; },0);
+      if(Math.abs(s-1)>1e-6) errors.push(name+' 합계 '+s);
+    }
+    sumIs1(T.arrival.bands.map(function(b){ return b.share; }), '시간대 비중');
+    T.ktasGroupByBand.bands.forEach(function(b,i){
+      sumIs1(b.probs, '시간대'+i+' KTAS');
+      Object.keys(b.probs).forEach(function(g){ sumIs1(T.ageByBandKtasGroup.bands[i].probs[g], '시간대'+i+' KTAS '+g+' 연령'); });
     });
-    if(jointTotal!==800493) errors.push('연령×KTAS 유효 표본 합계 불일치: '+jointTotal);
-
-    Object.keys(CASE_TYPE_COUNTS_BY_AGE).forEach(function(ageGroup){
-      var row=CASE_TYPE_COUNTS_BY_AGE[ageGroup];
-      if(!(row.disease>=0) || !(row.injury>=0) || row.disease+row.injury<=0) errors.push('질병/손상 빈도 오류: '+ageGroup);
+    Object.keys(T.dispositionByKtasGroupAge.table).forEach(function(g){
+      Object.keys(T.dispositionByKtasGroupAge.table[g]).forEach(function(a){
+        sumIs1(T.dispositionByKtasGroupAge.table[g][a], '처치 '+g+'/'+a);
+        sumIs1(T.ktasLevelByGroupAge.table[g][a], '레벨 '+g+'/'+a);
+        Object.keys(T.erLosByKtasGroupAgeResult.table[g][a]).forEach(function(r){
+          sumIs1(T.erLosByKtasGroupAgeResult.table[g][a][r], '재실 '+g+'/'+a+'/'+r);
+        });
+      });
     });
-    Object.keys(RESOURCE_NEED_PROBABILITIES_BY_KTAS).forEach(function(severity){
-      var row=RESOURCE_NEED_PROBABILITIES_BY_KTAS[severity];
-      var sum=row.icuOnly+row.surgeryOnly+row.both+row.neither;
-      if(Math.abs(sum-1)>1e-9) errors.push('자원 필요 결합확률 합계 오류: '+severity+'='+sum);
+    Object.keys(T.icuTypeByAge.table).forEach(function(a){
+      sumIs1(T.icuTypeByAge.table[a], 'ICU 종류 '+a);
+      Object.keys(T.icuTypeByAge.table[a]).forEach(function(k){
+        if(ICU_TYPES.indexOf(k)===-1) errors.push('알 수 없는 ICU 종류: '+k);
+        var any = hospitalsHaveIcuType(k);
+        if(!any) errors.push('ICU '+k+'를 가진 병원이 없음');
+      });
     });
-
-    var timeTotal=ARRIVAL_TIME_COUNTS.reduce(function(sum,row){ return sum+row.count; },0);
-    var dayTotal=ARRIVAL_DAY_COUNTS.reduce(function(sum,count){ return sum+count; },0);
-    if(timeTotal!==ANNUAL_ED_VISIT_COUNT) errors.push('시간대별 내원 합계 불일치: '+timeTotal);
-    if(dayTotal!==ANNUAL_ED_VISIT_COUNT) errors.push('요일별 내원 합계 불일치: '+dayTotal);
+    sumIs1(T.icuLosDays.probs, 'ICU 재실일수');
 
     var locationWeightTotal=POPULATION_DENSITY_CELLS.reduce(function(sum,cell){
       if(!cell.densityCellId || !Number.isInteger(cell.routeOriginIdx) || cell.routeOriginIdx<0 || cell.routeOriginIdx>=ROUTE_ORIGINS.length){
@@ -641,72 +663,27 @@
     if(errors.length) console.error('[환자 발생 확률 검증 실패]',errors);
     return errors.length===0;
   }
+  function hospitalsHaveIcuType(k){
+    for(var i=0;i<hospitals.length;i++){ if(hospitals[i].resources.icu[k] > 0) return true; }
+    return false;
+  }
 
   if(!validatePatientProbabilities()) throw new Error('환자 발생 확률표 검증에 실패했습니다.');
 
-  function samplePatientProfile(){
-    var totalJointCount=0;
-    for(var i=0;i<AGE_KTAS_JOINT_COUNTS.length;i++) totalJointCount+=AGE_KTAS_JOINT_COUNTS[i].count;
-    var jointTarget=spawnRandom()*totalJointCount;
-    var jointRow=AGE_KTAS_JOINT_COUNTS[AGE_KTAS_JOINT_COUNTS.length-1];
-    for(var j=0;j<AGE_KTAS_JOINT_COUNTS.length;j++){
-      jointTarget-=AGE_KTAS_JOINT_COUNTS[j].count;
-      if(jointTarget<=0){ jointRow=AGE_KTAS_JOINT_COUNTS[j]; break; }
-    }
+  function clockText(t){
+    var h = hourOfDay(t), hh = Math.floor(h), mm = Math.floor((h-hh)*60);
+    return (hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm;
+  }
+  function hourOfDay(t){
+    var abs = SIMULATION_START_HOUR*3600 + Math.max(0, t||0);
+    return (((abs % 86400) + 86400) % 86400)/3600;
+  }
 
-    var severityGroup=jointRow.ktasLevel<=2 ? 'critical' :
-      (jointRow.ktasLevel===3 ? 'urgent' : 'less_urgent');
-    var caseCounts=CASE_TYPE_COUNTS_BY_AGE[jointRow.ageGroup];
-    var caseType=spawnRandom()*(caseCounts.disease+caseCounts.injury)<caseCounts.disease ?
-      'disease' : 'injury';
-
-    // 같은 난수 한 번으로 결합상태를 뽑아 needsICU/needsSurgery의 상관관계를 보존한다.
-    var resourceProb=RESOURCE_NEED_PROBABILITIES_BY_KTAS[severityGroup];
-    var resourceDraw=spawnRandom();
-    var needsICU=false, needsSurgery=false;
-    if(resourceDraw<resourceProb.both){
-      needsICU=true; needsSurgery=true;
-    } else if(resourceDraw<resourceProb.both+resourceProb.icuOnly){
-      needsICU=true;
-    } else if(resourceDraw<resourceProb.both+resourceProb.icuOnly+resourceProb.surgeryOnly){
-      needsSurgery=true;
-    }
-
-    var isPediatric=jointRow.ageGroup==='infant' || jointRow.ageGroup==='pediatric';
-    // 2026-09-28, 8차: 이전에는 아래 매핑이 소아/외상/일반 세 갈래뿐이라 requiredSpecialty가
-    // '심장'으로 절대 나오지 않았다(SPECIALTIES는 4개인데 3개만 실제로 쓰임 — 병원 쪽
-    // 심장 ICU 버킷이 전혀 소모되지 않는 죽은 자원이었음, 2026-09-21 TODO). 이번에
-    // 질병군(소아·손상이 아닌 나머지) 환자를 DISEASE_SPECIALTY_WEIGHTS(파일 상단, 병상
-    // 규모비례 가정)에 따라 내과/일반/심장 세 갈래로 나누도록 고쳤다 — 실제 상병 분포
-    // 데이터가 없어 택한 가정이며, 실측 데이터가 확보되면 이 가중치 계산부만 교체하면 됨.
-    var requiredSpecialty;
-    if(isPediatric){
-      requiredSpecialty='소아';
-    } else if(caseType==='injury'){
-      requiredSpecialty='외상';
-    } else {
-      var diseaseDraw=spawnRandom();
-      if(diseaseDraw<DISEASE_SPECIALTY_WEIGHTS.내과) requiredSpecialty='내과';
-      else if(diseaseDraw<DISEASE_SPECIALTY_WEIGHTS.내과+DISEASE_SPECIALTY_WEIGHTS.심장) requiredSpecialty='심장';
-      else requiredSpecialty='일반';
-    }
-    var requiredCareType=isPediatric ?
-      (severityGroup==='critical' ? 'pediatric_critical' : 'pediatric_general') :
-      (caseType==='injury' ? (severityGroup==='critical' ? 'trauma_critical' : 'trauma_general') :
-        (requiredSpecialty==='심장' ? (severityGroup==='critical' ? 'cardiac_critical' : 'cardiac_general') :
-          (severityGroup==='critical' ? 'general_critical' : 'general')));
-
-    return {
-      patientType:jointRow.ageGroup+'_ktas_'+jointRow.ktasLevel,
-      ageGroup:jointRow.ageGroup,
-      ktasLevel:jointRow.ktasLevel,
-      severityGroup:severityGroup,
-      caseType:caseType,
-      requiredCareType:requiredCareType,
-      requiredSpecialty:requiredSpecialty,
-      needsICU:needsICU,
-      needsSurgery:needsSurgery
-    };
+  // 2026-10-07, 10차 — 확률표 기반 프로필. 사슬: 시간대 → KTAS → 연령 → KTAS 레벨 → 응급진료결과
+  // (→ ICU/수술 필요) → ICU 종류 → 응급실 재실시간·수술실 시간·ICU 재실일수. 난수는 spawnRandom만
+  // 쓰고 환자당 개수가 고정이다(patient_profile_sampler.js).
+  function samplePatientProfile(t){
+    return patientSampler.sampleProfile(spawnRandom, hourOfDay(t));
   }
 
   function samplePatientLocation(simTime){
@@ -720,41 +697,30 @@
     };
   }
 
-  function getNextArrivalIntervalSec(simTime){
-    var absoluteSimSec=SIMULATION_START_HOUR*3600+Math.max(0,simTime||0);
-    var secOfDay=((absoluteSimSec%86400)+86400)%86400;
-    var hour=secOfDay/3600;
-    var timeRow=ARRIVAL_TIME_COUNTS[ARRIVAL_TIME_COUNTS.length-1];
-    for(var i=0;i<ARRIVAL_TIME_COUNTS.length;i++){
-      if(hour>=ARRIVAL_TIME_COUNTS[i].startHour && hour<ARRIVAL_TIME_COUNTS[i].endHour){
-        timeRow=ARRIVAL_TIME_COUNTS[i]; break;
-      }
-    }
-    var elapsedDay=Math.floor(absoluteSimSec/86400);
-    var dayIdx=(SIMULATION_START_DAY_OF_WEEK+elapsedDay)%7;
-    var dayMultiplier=(ARRIVAL_DAY_COUNTS[dayIdx]/ANNUAL_ED_VISIT_COUNT)*7;
-    var bandShare=timeRow.count/ANNUAL_ED_VISIT_COUNT;
-    var bandHours=timeRow.endHour-timeRow.startHour;
-    var arrivalsPerHour=(ANNUAL_ED_VISIT_COUNT/ANNUAL_DAY_COUNT)*dayMultiplier*bandShare/bandHours;
-    var ratePerSec=arrivalsPerHour/3600*PATIENT_DEMAND_MULTIPLIER;
+  // 비균질 포아송 도착: 현재 시간대의 도착률로 지수분포 간격을 뽑는다.
+  // 10차: 전체 내원 건수 기준(2026-10-07 결정), 요일 배율 제거.
+  function getNextArrivalIntervalSec(t){
+    var ratePerSec = patientSampler.arrivalRatePerSec(hourOfDay(t), {multiplier: PATIENT_DEMAND_MULTIPLIER});
     if(!(ratePerSec>0)) throw new Error('환자 도착률은 0보다 커야 합니다.');
     return Math.max(1,-Math.log(Math.max(Number.EPSILON,1-spawnRandom()))/ratePerSec);
   }
 
+  var AGE_LABEL = {infant:'1세 미만', pediatric:'1–14세', adult:'15–64세', elderly:'65세 이상'};
   function spawnPatient(){
-    var profile = samplePatientProfile();
+    var profile = samplePatientProfile(simTime);
     var location = samplePatientLocation(simTime);
 
     var marker = L.circleMarker([location.lat, location.lng], {
       radius:5, color:COLOR_WAITING, fillColor:COLOR_WAITING, fillOpacity:0.9, weight:1
     }).addTo(map);
     marker.bindPopup(
-      '환자유형: '+profile.patientType+'<br>KTAS '+profile.ktasLevel+
-      ' · '+(profile.caseType==='disease'?'질병':'손상')+
-      '<br>필요 진료과: '+profile.requiredSpecialty+
+      '환자유형: '+profile.patientType+'<br>KTAS '+profile.ktasLevel+' · '+AGE_LABEL[profile.ageGroup]+
+      '<br>필요 진료계열: '+profile.requiredSpecialty+
       '<br>ICU '+(profile.needsICU?'필요':'불필요')+' · 수술 '+(profile.needsSurgery?'필요':'불필요')+
       '<br>상태: 대기 중'
     );
+    marker.bindTooltip('', {direction:'top', offset:[0,-6]});
+    marker.on('tooltipopen', function(){ marker.setTooltipContent(patientTooltipHtml(patient)); });
 
     var patient = {
       id: ++patientIdCounter,
@@ -762,12 +728,16 @@
       patientType: profile.patientType,
       ageGroup: profile.ageGroup,
       ktasLevel: profile.ktasLevel,
+      ktasGroup: profile.ktasGroup,
       severityGroup: profile.severityGroup,
-      caseType: profile.caseType,
-      requiredCareType: profile.requiredCareType,
+      disposition: profile.disposition,
       requiredSpecialty: profile.requiredSpecialty,
+      icuType: profile.icuType,
       needsICU: profile.needsICU,
       needsSurgery: profile.needsSurgery,
+      erLosSec: profile.erLosSec,
+      orSec: profile.orSec,
+      icuLosSec: profile.icuLosSec,
 
       lat: location.lat, lng: location.lng,
       densityCellId: location.densityCellId, routeOriginIdx: location.routeOriginIdx,
@@ -777,10 +747,127 @@
     };
     patients.push(patient);
     spawnCount++;
+    debugCounts.spawnBySpecialty[patient.requiredSpecialty] = (debugCounts.spawnBySpecialty[patient.requiredSpecialty]||0)+1;
     logEvent(
       '환자 #'+patient.id+' 발생 (KTAS '+patient.ktasLevel+' · '+patient.requiredSpecialty+
       (patient.needsICU?' · ICU':'')+(patient.needsSurgery?' · 수술':'')+')'
     );
+  }
+
+  // ============================================================
+  // 시작 상태 (2026-10-07, 11차) — 시뮬레이션을 빈 병상에서 시작하지 않고, 실제로 차 있던 병상을
+  // 반영해서 시작한다. 선택지(화면 "시작 상태"):
+  //  - 실측 스냅샷: data/bed_snapshots.data.js (E-Gen 실시간 가용병상 조회 결과 또는 응급똑똑 캡처).
+  //    병원·항목별 점유율 = (전체 − 가용) / 전체 를 시뮬레이션 병상 수에 곱해 "이미 있는 환자"를 만든다.
+  //    가용이 음수(대기 환자)면 그 병상은 꽉 찬 것으로 본다. 스냅샷에 없는 ICU 종류는 가정 가동률 사용.
+  //    시뮬레이션 시각은 스냅샷 시각에서 시작한다(도착률·환자 구성이 그 시간대 것으로 나옴).
+  //  - 가정 가동률: ICU만 입력한 비율(기본 72.9%)로 채우고 응급실·수술실은 비움 (10차 방식)
+  //  - 빈 병상: 모두 비우고 시작
+  // 이미 있는 환자의 남은 시간은 정상상태 잔여시간 분포(patient_profile_sampler.js). 환자 발생열
+  // (spawnRandom)과 섞이지 않게 시드에서 파생한 별도 난수열을 쓰므로 두 배정 모드가 같은 초기
+  // 상태에서 시작한다.
+  // ============================================================
+  var BED_SNAPSHOTS = window.BED_SNAPSHOTS || [];
+  var HOSPITAL_INDEX_BY_HPID = {};
+  hospitals.forEach(function(h, i){ HOSPITAL_INDEX_BY_HPID[h.hpid] = i; });
+
+  function stochasticRound(x, r){ var f = Math.floor(x); return f + (r() < x - f ? 1 : 0); }
+  // 스냅샷 항목들의 점유율. cats: {"ER.일반": {avail,total}, ...}, keys: 합칠 항목 이름들
+  function snapshotOccupancy(cats, keys){
+    var occ = 0, tot = 0, waiting = 0, found = false;
+    keys.forEach(function(k){
+      var c = cats[k];
+      if(!c || !(c.total > 0)) return;
+      found = true;
+      tot += c.total;
+      occ += Math.min(c.total, Math.max(0, c.total - c.avail));
+      if(c.avail < 0) waiting += -c.avail;
+    });
+    return found ? {ratio: occ/tot, waiting: waiting} : null;
+  }
+  var ER_SNAPSHOT_KEYS = ['ER.일반','ER.소아','ER.외상소생실','ER.일반격리','ER.음압격리','ER.소아일반격리','ER.소아음압격리','ER.코호트격리'];
+  function icuSnapshotKeys(type){ return type === '소아' ? ['ICU.소아','EMG.소아중환자실'] : ['ICU.'+type]; }
+
+  function readStartStateSel(){
+    var el = document.getElementById('startStateSel');
+    return el ? el.value : (BED_SNAPSHOTS.length ? 'snap:'+BED_SNAPSHOTS[0].id : 'assumed');
+  }
+
+  function addPreexisting(status, idx, extra){
+    var p = { id: 'pre-'+(++preexistingCounter), status: status, hospitalIdx: idx, preexisting: true,
+              needsICU: false, needsSurgery: false, marker: null, routeLine: null };
+    for(var k in extra) p[k] = extra[k];
+    patients.push(p);
+  }
+  var preexistingCounter = 0;
+
+  // 반환: 화면 로그용 요약
+  function seedInitialState(seed){
+    var r = mulberry32(((seed>>>0) ^ 0x9E3779B9)>>>0);
+    var mode = readStartStateSel();
+    var icuRate = readIcuOccupancyInput();
+    preexistingCounter = 0;
+    var sum = {er:0, icu:0, or:0, icuFallbackBeds:0, waiting:0, mode:mode, label:''};
+    var snap = null;
+    if(mode.indexOf('snap:') === 0){
+      var id = mode.slice(5);
+      for(var i=0;i<BED_SNAPSHOTS.length;i++) if(BED_SNAPSHOTS[i].id === id) snap = BED_SNAPSHOTS[i];
+    }
+    SIMULATION_START_HOUR = snap ? (Number(snap.startHour)||0) : 0;
+    if(mode === 'empty') { sum.label = '빈 병상'; return sum; }
+
+    hospitals.forEach(function(hos, idx){
+      var cats = (snap && snap.hospitals[hos.hpid]) ? snap.hospitals[hos.hpid].cats : null;
+      // 응급실 (스냅샷일 때만)
+      if(cats){
+        var er = snapshotOccupancy(cats, ER_SNAPSHOT_KEYS);
+        if(er){
+          var nEr = Math.min(hos.capacity, stochasticRound(hos.capacity*er.ratio, r));
+          sum.waiting += er.waiting;
+          for(var j=0;j<nEr;j++){
+            hos.occupied++; sum.er++;
+            addPreexisting(PATIENT_STATUS.TREATING, idx, {treatRemaining: patientSampler.sampleErResidualSec(r, SIMULATION_START_HOUR)});
+          }
+        }
+        var or = snapshotOccupancy(cats, ['OR.수술실']);
+        if(or){
+          var nOr = Math.min(hos.resources.surgery, stochasticRound(hos.resources.surgery*or.ratio, r));
+          for(var q=0;q<nOr;q++){
+            hos.occupiedOR++; sum.or++;
+            addPreexisting(PATIENT_STATUS.SURGERY, idx, {orRemaining: patientSampler.sampleOrResidualSec(r)});
+          }
+        }
+      }
+      // ICU 9종: 스냅샷에 있으면 그 점유율, 없으면 가정 가동률
+      ICU_TYPES.forEach(function(k){
+        var cap = hos.resources.icu[k] || 0;
+        if(!cap) return;
+        var o = cats ? snapshotOccupancy(cats, icuSnapshotKeys(k)) : null;
+        var ratio = o ? o.ratio : icuRate;
+        if(!o && snap) sum.icuFallbackBeds += cap;
+        var count = Math.min(cap, stochasticRound(cap*ratio, r));
+        for(var j=0;j<count;j++){
+          hos.occupiedICU[k]++; sum.icu++;
+          addPreexisting(PATIENT_STATUS.ICU_STAY, idx, {requiredSpecialty: k, icuType: k, needsICU: true,
+            icuRemaining: patientSampler.sampleIcuResidualSec(r)});
+        }
+      });
+    });
+    sum.label = snap ? snap.label : ('가정 가동률 ICU '+(icuRate*100).toFixed(1)+'%');
+    return sum;
+  }
+  function logInitialState(sum){
+    var hh = Math.floor(SIMULATION_START_HOUR), mm = Math.round((SIMULATION_START_HOUR-hh)*60);
+    logEvent('시작 상태: '+sum.label+' · 시작 시각 '+(hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm+
+      ' · 기존 환자 응급실 '+sum.er+' · 수술 '+sum.or+' · ICU '+sum.icu+
+      (sum.waiting ? ' · 응급실 대기 '+sum.waiting+'명(스냅샷, 병상 만석 처리)' : '')+
+      (sum.icuFallbackBeds ? ' · 스냅샷에 없는 ICU '+sum.icuFallbackBeds+'병상은 가정 가동률' : ''));
+  }
+  function readIcuOccupancyInput(){
+    var el = document.getElementById('icuOccInput');
+    var v = el ? parseFloat(el.value) : NaN;
+    if(!Number.isFinite(v)) return DEFAULT_ICU_INITIAL_OCCUPANCY;
+    return Math.max(0, Math.min(100, v))/100;
   }
 
   // ============================================================
@@ -837,7 +924,9 @@
             if(isHospitalEligible(p, hos)){
               assignPatientToHospital(p, hIdx, p.contactAttempts);
             } else {
-              logEvent('환자 #'+p.id+' → '+hos.name+' 문의 → 거절 ('+hospitalRejectionReason(p, hos)+')');
+              var rejectReason = hospitalRejectionReason(p, hos);
+              debugCounts.reject[rejectReason] = (debugCounts.reject[rejectReason]||0)+1;
+              logEvent('환자 #'+p.id+' → '+hos.name+' 문의 → 거절 ('+rejectReason+')');
               p.candidateIdx++;
               if(p.waitElapsed > WAIT_TIMEOUT_SEC){
                 failPatient(p, '가용 응급실 없음 (문의 '+p.contactAttempts+'회 시도)');
@@ -856,21 +945,66 @@
         p.marker.setLatLng(pos);
         if(progress >= 1){
           p.status = PATIENT_STATUS.TREATING;
-          p.treatRemaining = rand(TREAT_MIN_SEC, TREAT_MAX_SEC);
+          // 2026-10-07, 10차: 응급실 재실시간은 표 11 기반 분포에서 발생 시점에 이미 뽑아 둔 값
+          p.treatRemaining = p.erLosSec;
+          p.arrivedAt = simTime;
           if(p.routeLine){ map.removeLayer(p.routeLine); p.routeLine = null; }
           map.removeLayer(p.marker);
           p.marker = null;
         }
       } else if(p.status === PATIENT_STATUS.TREATING){
+        // 응급실 병상 점유 단계. 재실시간이 끝나면:
+        //  - 수술 필요 → 수술실이 비어 있으면 응급실 병상 반납 후 SURGERY, 다 차 있으면 응급실에서 대기
+        //  - ICU 필요(수술 없음) → 응급실 병상 반납 후 ICU_STAY (ICU는 배정 때 이미 확보)
+        //  - 그 외 → 퇴실(귀가·일반병실 입원·전원 등, 이후는 모델 밖)
         p.treatRemaining -= simDt;
         if(p.treatRemaining <= 0){
           var dischargeHos = hospitals[p.hospitalIdx];
+          if(p.needsSurgery && dischargeHos.occupiedOR >= dischargeHos.resources.surgery){
+            if(!p.waitingOR){ p.waitingOR = true; orWaitStartCount++; logEvent('환자 #'+p.id+' 수술실 대기 · '+dischargeHos.name); }
+            continue; // 응급실 병상을 잡은 채 대기 (다음 틱에 다시 확인)
+          }
           dischargeHos.occupied--;
-          if(p.needsICU){ dischargeHos.occupiedICU[p.requiredSpecialty]--; }
-          if(p.needsSurgery){ dischargeHos.occupiedOR--; }
+          if(p.preexisting){ updateHospitalVisual(p.hospitalIdx); patients.splice(i,1); continue; } // 시작 시점에 있던 환자: 퇴실만
+          erDischargeCount++;
+          totalErStaySec += simTime - p.arrivedAt;
+          if(p.needsSurgery){
+            dischargeHos.occupiedOR++;
+            p.status = PATIENT_STATUS.SURGERY;
+            p.orRemaining = p.orSec;
+            logEvent('환자 #'+p.id+' 응급실 퇴실 → 수술 시작 · '+dischargeHos.name);
+          } else if(p.needsICU){
+            p.status = PATIENT_STATUS.ICU_STAY;
+            p.icuRemaining = p.icuLosSec;
+            logEvent('환자 #'+p.id+' 응급실 퇴실 → '+p.requiredSpecialty+' 중환자실 · '+dischargeHos.name);
+          } else {
+            treatedCount++;
+            logEvent('환자 #'+p.id+' 응급실 퇴실 · '+dischargeHos.name+' 병상 반납');
+            patients.splice(i,1);
+          }
           updateHospitalVisual(p.hospitalIdx);
-          treatedCount++;
-          logEvent('환자 #'+p.id+' 치료 완료 · '+dischargeHos.name+' 병상 반납');
+        }
+      } else if(p.status === PATIENT_STATUS.SURGERY){
+        p.orRemaining -= simDt;
+        if(p.orRemaining <= 0){
+          var orHos = hospitals[p.hospitalIdx];
+          orHos.occupiedOR--;
+          if(p.needsICU){
+            p.status = PATIENT_STATUS.ICU_STAY;
+            p.icuRemaining = p.icuLosSec;
+          } else {
+            if(!p.preexisting) treatedCount++;
+            patients.splice(i,1);
+          }
+          updateHospitalVisual(p.hospitalIdx);
+        }
+      } else if(p.status === PATIENT_STATUS.ICU_STAY){
+        p.icuRemaining -= simDt;
+        if(p.icuRemaining <= 0){
+          var icuHos = hospitals[p.hospitalIdx];
+          icuHos.occupiedICU[p.requiredSpecialty]--;
+          if(!p.preexisting) treatedCount++;
+          updateHospitalVisual(p.hospitalIdx);
           patients.splice(i,1);
         }
       } else if(p.status === PATIENT_STATUS.FAILED){
@@ -880,6 +1014,14 @@
           map.removeLayer(p.marker);
           patients.splice(i,1);
         }
+      }
+    }
+    // 마우스를 올려 둔 환자의 툴팁은 매 프레임 위치·내용을 갱신한다(이송 중에는 마커가 움직이므로)
+    for(var t=0; t<patients.length; t++){
+      var tp = patients[t];
+      if(tp.marker && tp.marker.isTooltipOpen()){
+        tp.marker.getTooltip().setLatLng(tp.marker.getLatLng());
+        tp.marker.setTooltipContent(patientTooltipHtml(tp));
       }
     }
   }
@@ -899,13 +1041,25 @@
       ? (totalContactAttempts/searchCountForAvg).toFixed(1) : '-';
     if(avgSearchEl) avgSearchEl.textContent = searchCountForAvg > 0
       ? (totalSearchDurationSec/searchCountForAvg/60).toFixed(1) : '-';
-    var waitingCount = 0, contactingCount = 0, transitCount = 0;
+    var waitingCount = 0, contactingCount = 0, transitCount = 0, erCount = 0, orWaitCount = 0, surgeryCount = 0;
     for(var i=0;i<patients.length;i++){
-      if(patients[i].status===PATIENT_STATUS.WAITING) waitingCount++;
-      if(patients[i].status===PATIENT_STATUS.CONTACTING) contactingCount++;
-      if(patients[i].status===PATIENT_STATUS.TRANSIT) transitCount++;
+      var st = patients[i].status;
+      if(st===PATIENT_STATUS.WAITING) waitingCount++;
+      else if(st===PATIENT_STATUS.CONTACTING) contactingCount++;
+      else if(st===PATIENT_STATUS.TRANSIT) transitCount++;
+      else if(st===PATIENT_STATUS.TREATING){ erCount++; if(patients[i].waitingOR) orWaitCount++; }
+      else if(st===PATIENT_STATUS.SURGERY) surgeryCount++;
     }
-    document.getElementById('liveReadout').textContent = '대기 '+waitingCount+' · 문의중 '+contactingCount+' · 이송중 '+transitCount;
+    // 10차 — 병상 가동 지표
+    var erOcc=0, erCap=0, icuOcc=0, icuCap=0;
+    hospitals.forEach(function(h){ erOcc+=h.occupied; erCap+=h.capacity; icuOcc+=occupiedICUTotal(h); icuCap+=icuTotal(h); });
+    var setText = function(id, v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+    setText('erOccStat', erCap>0 ? (erOcc/erCap*100).toFixed(0)+'%' : '-');
+    setText('icuOccStat', icuCap>0 ? (icuOcc/icuCap*100).toFixed(1)+'%' : '-');
+    setText('erStayStat', erDischargeCount>0 ? (totalErStaySec/erDischargeCount/3600).toFixed(1) : '-');
+    setText('orWaitStat', orWaitCount+' / 누적 '+orWaitStartCount);
+    setText('liveReadout', '대기 '+waitingCount+' · 문의중 '+contactingCount+' · 이송중 '+transitCount+
+      ' · 응급실 '+erCount+' · 수술 '+surgeryCount+' · 경과 '+formatSimTime(simTime)+' · 시각 '+clockText(simTime));
   }
 
   function resetSim(){
@@ -918,21 +1072,49 @@
     patients = [];
     hospitals.forEach(function(hos, idx){
       hos.occupied = 0;
-      hos.occupiedICU = {외상:0, 심장:0, 소아:0, 일반:0, 내과:0};
+      hos.occupiedICU = zeroIcuMap();
       hos.occupiedOR = 0;
-      updateHospitalVisual(idx);
     });
     spawnCount=0; treatedCount=0; failCount=0;
+    erDischargeCount=0; totalErStaySec=0; orWaitStartCount=0;
+    debugCounts = {reject:{}, failBySpecialty:{}, spawnBySpecialty:{}};
     totalTransitDurationSec=0; transitCountForAvg=0;
     totalContactAttempts=0; totalSearchDurationSec=0; searchCountForAvg=0;
     // 2026-09-28, 9차 — 초기화할 때마다 시드 입력칸의 값으로 다시 시드를 건다. 시드값을
     // 그대로 두고 모드만 바꿔 초기화하면(아래 modeSel 변경 핸들러), 두 모드에 동일한
     // 환자 발생열이 재생된다.
-    applySeed(readSeedFromInput());
-    simTime=0; spawnTimer = getNextArrivalIntervalSec(simTime);
+    var seed = readSeedFromInput();
+    applySeed(seed);
+    simTime=0;
+    var sum = seedInitialState(seed);   // 시작 시각(SIMULATION_START_HOUR)도 여기서 정해짐
+    hospitals.forEach(function(_, idx){ updateHospitalVisual(idx); });
+    spawnTimer = getNextArrivalIntervalSec(simTime);
     eventLogEl.innerHTML = '';
+    logInitialState(sum);
     updateStatsDisplay();
   }
+
+  // 시작 상태 초기화 (11차) — 아래 함수·스냅샷 변수가 모두 정의된 뒤에 실행해야 한다
+  (function(){
+    var icuOccEl = document.getElementById('icuOccInput');
+    if(icuOccEl && !icuOccEl.value) icuOccEl.value = (DEFAULT_ICU_INITIAL_OCCUPANCY*100).toFixed(1);
+    // 11차 — 시작 상태 선택칸 채우기 (스냅샷 최신순, 기본은 가장 최근 스냅샷)
+    var sel = document.getElementById('startStateSel');
+    if(sel){
+      BED_SNAPSHOTS.forEach(function(sn){
+        var o = document.createElement('option'); o.value = 'snap:'+sn.id; o.textContent = '실측: '+sn.label; sel.appendChild(o);
+      });
+      [['assumed','가정 가동률(ICU만)'],['empty','빈 병상']].forEach(function(x){
+        var o = document.createElement('option'); o.value = x[0]; o.textContent = x[1]; sel.appendChild(o);
+      });
+      sel.value = BED_SNAPSHOTS.length ? 'snap:'+BED_SNAPSHOTS[0].id : 'assumed';
+      sel.addEventListener('change', resetSim);
+    }
+    var sum = seedInitialState(readSeedFromInput());
+    spawnTimer = getNextArrivalIntervalSec(0);
+    hospitals.forEach(function(_, idx){ updateHospitalVisual(idx); });
+    logInitialState(sum);
+  })();
 
   var playBtn = document.getElementById('playBtn');
   function updatePlayButton(){
@@ -1006,6 +1188,25 @@
   requestAnimationFrame(tick);
 
   window.addEventListener('resize', function(){ map.invalidateSize(); });
+
+  // 2026-10-07, 10차 — 검증·발표 자료용 상태 조회(콘솔에서 SIM_DEBUG.getState()). 시뮬레이션 동작에는 영향 없음.
+  window.SIM_DEBUG = {
+    getState: function(){
+      var icuByType = {};
+      ICU_TYPES.forEach(function(k){
+        var occ=0, cap=0;
+        hospitals.forEach(function(h){ occ+=h.occupiedICU[k]; cap+=h.resources.icu[k]; });
+        icuByType[k] = {occupied:occ, capacity:cap};
+      });
+      var er={occupied:0,capacity:0}, or={occupied:0,capacity:0};
+      hospitals.forEach(function(h){ er.occupied+=h.occupied; er.capacity+=h.capacity; or.occupied+=h.occupiedOR; or.capacity+=h.resources.surgery; });
+      return { simTime: simTime, spawn: spawnCount, treated: treatedCount, fail: failCount, er: er, or: or, icuByType: icuByType,
+               erDischarge: erDischargeCount, avgErStayH: erDischargeCount ? totalErStaySec/erDischargeCount/3600 : null,
+               orWaitStarts: orWaitStartCount, counts: debugCounts,
+               avgAttempts: searchCountForAvg ? totalContactAttempts/searchCountForAvg : null,
+               avgSearchMin: searchCountForAvg ? totalSearchDurationSec/searchCountForAvg/60 : null };
+    }
+  };
 
   updateStatsDisplay();
 })();

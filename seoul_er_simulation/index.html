@@ -83,6 +83,12 @@
           style="width:88px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-family:'IBM Plex Mono',monospace;font-size:12px;">
       </label>
       <button id="newSeedBtn" title="새 무작위 시드를 뽑고 초기화합니다">새 시드</button>
+      <select id="startStateSel" title="시뮬레이션 시작 시점에 병상이 얼마나 차 있는지. 실측 스냅샷을 고르면 그 시각의 점유 상태와 시각에서 시작합니다(바꾸면 바로 초기화)"></select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim);" title="'가정 가동률'을 고르거나, 실측 스냅샷에 없는 ICU 종류를 채울 때 쓰는 비율. 기본값 72.9%는 전국 ICU 병상 점유율(2019, Cho et al. 2021). 바꾼 뒤 초기화를 누르면 적용됩니다">
+        ICU 가정 가동률(%)
+        <input id="icuOccInput" type="number" min="0" max="100" step="0.1" value="72.9"
+          style="width:70px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-family:'IBM Plex Mono',monospace;font-size:12px;">
+      </label>
     </div>
     <div class="live-readout" id="liveReadout">대기 0 · 문의중 0 · 이송중 0</div>
   </header>
@@ -91,11 +97,15 @@
     <aside class="sidebar">
       <div class="stats-grid">
         <div class="stat-card"><p class="stat-label">총 발생</p><p class="stat-value" id="spawnStat">0</p></div>
-        <div class="stat-card"><p class="stat-label">치료 완료</p><p class="stat-value" id="treatedStat">0</p></div>
+        <div class="stat-card"><p class="stat-label">치료 완료(퇴실)</p><p class="stat-value" id="treatedStat">0</p></div>
         <div class="stat-card"><p class="stat-label">배정 실패</p><p class="stat-value" id="failStat">0</p></div>
         <div class="stat-card"><p class="stat-label">평균 이송(분)</p><p class="stat-value" id="etaStat">-</p></div>
         <div class="stat-card"><p class="stat-label">평균 문의횟수</p><p class="stat-value" id="avgAttemptsStat">-</p></div>
         <div class="stat-card"><p class="stat-label">평균 탐색시간(분)</p><p class="stat-value" id="avgSearchStat">-</p></div>
+        <div class="stat-card"><p class="stat-label">응급실 가동률</p><p class="stat-value" id="erOccStat">-</p></div>
+        <div class="stat-card"><p class="stat-label">ICU 가동률</p><p class="stat-value" id="icuOccStat">-</p></div>
+        <div class="stat-card"><p class="stat-label">평균 응급실 체류(시간)</p><p class="stat-value" id="erStayStat">-</p></div>
+        <div class="stat-card"><p class="stat-label">수술실 대기(현재 / 누적)</p><p class="stat-value" id="orWaitStat" style="font-size:15px">-</p></div>
       </div>
       <p class="section-label">
         <span>응급실 현황 (51)</span>
@@ -110,7 +120,7 @@
     </aside>
   </main>
   <footer>
-    교육·데모 목적의 가상 시뮬레이션입니다. 병원 위치·병상수(capacity)·진료과(specialties)·중환자실/수술실(resources)은 서울 법정 응급의료기관 51곳(권역응급의료센터 7·지역응급의료센터 24·지역응급의료기관 20)의 응급똑똑 앱 실측 데이터입니다(자세한 출처는 README.md 참고). 원래 74곳 중 세부 병상 데이터가 없던 응급실운영신고기관 23곳은 이번 범위에서 제외했습니다. 환자 중 일부는 응급실 병상뿐 아니라 중환자실·수술실 여유가 있어야 배정됩니다(고정 확률로 단순화, 아직 KTAS 반영 전). 이동 경로는 서울 권역 4×4 격자(16개 대표 지점)와 병원 51곳의 조합(816구간)을 카카오모빌리티 길찾기 API(실시간 교통 반영)로 사전 계산해 캐싱한 것이라 근사(점선) 경로가 나오지 않습니다. 시연 중에는 외부 API를 호출하지 않습니다. 병원 배정은 기본적으로 "순차 탐색" 방식 — 가까운 병원부터 한 곳씩 문의해 그 시점의 실제 자원으로 즉석 판정하며, 접촉 1회당 30초가 걸린다고 가정합니다(통화·현장 판단 소요시간 실측치는 없음). 상단의 "전역 즉시 스캔"은 병상 정보가 실시간으로 완전히 공유된다고 가정한 이상적 비교 시나리오이며, 같은 시드값을 쓰면 두 모드에 동일한 환자 발생열이 재생되어 공정하게 비교할 수 있습니다.
+    교육·데모 목적의 가상 시뮬레이션입니다. 병원 위치·병상수(capacity)·진료과(specialties)·중환자실/수술실(resources)은 서울 법정 응급의료기관 51곳(권역응급의료센터 7·지역응급의료센터 24·지역응급의료기관 20)의 응급똑똑 앱 실측 데이터입니다(자세한 출처는 README.md 참고). 원래 74곳 중 세부 병상 데이터가 없던 응급실운영신고기관 23곳은 이번 범위에서 제외했습니다. 환자 프로필(KTAS·연령·응급진료결과·ICU 종류)과 응급실 재실시간은 2024 응급의료 통계연보 서울 편(119구급차 내원 기준) 실측 표로 만든 확률표에서 뽑고, 도착률은 전체 내원 건수 기준입니다. ICU가 필요한 환자는 병원의 해당 중환자실(9종) 여유가, 수술이 필요한 환자는 수술실 여유가 있어야 배정됩니다. ICU 재실일수(HIRA 중환자실 평가), 수술실 시간(국외 문헌 평균), 시작 시 ICU 가동률(전국 2019년)은 외부 자료를 빌린 가정입니다(docs/10차_환자발생_확률표.md). 시작 상태는 실측 스냅샷(E-Gen 실시간 가용병상 조회 또는 응급똑똑 캡처)의 병상 점유를 반영할 수 있습니다(docs/11차_시작상태_실측스냅샷.md). 이동 경로는 서울 권역 4×4 격자(16개 대표 지점)와 병원 51곳의 조합(816구간)을 카카오모빌리티 길찾기 API(실시간 교통 반영)로 사전 계산해 캐싱한 것이라 근사(점선) 경로가 나오지 않습니다. 시연 중에는 외부 API를 호출하지 않습니다. 병원 배정은 기본적으로 "순차 탐색" 방식 — 가까운 병원부터 한 곳씩 문의해 그 시점의 실제 자원으로 즉석 판정하며, 접촉 1회당 30초가 걸린다고 가정합니다(통화·현장 판단 소요시간 실측치는 없음). 상단의 "전역 즉시 스캔"은 병상 정보가 실시간으로 완전히 공유된다고 가정한 이상적 비교 시나리오이며, 같은 시드값을 쓰면 두 모드에 동일한 환자 발생열이 재생되어 공정하게 비교할 수 있습니다.
   </footer>
 </div>
 
@@ -119,6 +129,10 @@
 <script src="data/hospitals.data.js"></script>
 <script src="data/route_origins.data.js"></script>
 <script src="data/route_cache.data.js"></script>
+<script src="data/patient_probabilities.data.js"></script>
+<script src="data/hospital_icu_columns.data.js"></script>
+<script src="data/bed_snapshots.data.js"></script>
+<script src="patient_profile_sampler.js"></script>
 <script src="sim.js"></script>
 </body>
 </html>
