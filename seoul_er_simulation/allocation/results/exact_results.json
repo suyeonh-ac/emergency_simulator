@@ -1,0 +1,122 @@
+{
+ "A_1": {
+  "status": "OPTIMAL",
+  "cost": 36035.1,
+  "bound": 36035.1,
+  "timeMs": 286.15849977359176
+ },
+ "A_2": {
+  "status": "OPTIMAL",
+  "cost": 35018.1,
+  "bound": 35018.1,
+  "timeMs": 156.37499978765845
+ },
+ "A_3": {
+  "status": "OPTIMAL",
+  "cost": 41022.9,
+  "bound": 41022.9,
+  "timeMs": 157.36739989370108
+ },
+ "A_4": {
+  "status": "OPTIMAL",
+  "cost": 36848.5,
+  "bound": 36848.5,
+  "timeMs": 171.7198002152145
+ },
+ "A_5": {
+  "status": "OPTIMAL",
+  "cost": 46691.2,
+  "bound": 46691.2,
+  "timeMs": 167.8881999105215
+ },
+ "B_1": {
+  "status": "OPTIMAL",
+  "cost": 180163.8,
+  "bound": 180163.8,
+  "timeMs": 221.54939966276288
+ },
+ "B_2": {
+  "status": "OPTIMAL",
+  "cost": 191256.1,
+  "bound": 191256.1,
+  "timeMs": 260.3926002047956
+ },
+ "B_3": {
+  "status": "OPTIMAL",
+  "cost": 178938.7,
+  "bound": 178938.7,
+  "timeMs": 223.17690029740334
+ },
+ "B_4": {
+  "status": "OPTIMAL",
+  "cost": 153301.4,
+  "bound": 153301.4,
+  "timeMs": 307.651000097394
+ },
+ "B_5": {
+  "status": "OPTIMAL",
+  "cost": 191776.3,
+  "bound": 191776.3,
+  "timeMs": 234.97350001707673
+ },
+ "C_1": {
+  "status": "OPTIMAL",
+  "cost": 275036.3,
+  "bound": 275036.3,
+  "timeMs": 725.1077000983059
+ },
+ "C_2": {
+  "status": "OPTIMAL",
+  "cost": 278282.9,
+  "bound": 278282.9,
+  "timeMs": 759.7869001328945
+ },
+ "C_3": {
+  "status": "OPTIMAL",
+  "cost": 285838.8,
+  "bound": 285838.8,
+  "timeMs": 765.5424000695348
+ },
+ "C_4": {
+  "status": "OPTIMAL",
+  "cost": 267273.6,
+  "bound": 267273.6,
+  "timeMs": 680.8424000628293
+ },
+ "C_5": {
+  "status": "OPTIMAL",
+  "cost": 271728.8,
+  "bound": 271728.8,
+  "timeMs": 689.9193003773689
+ },
+ "D_1": {
+  "status": "OPTIMAL",
+  "cost": 1812784.9,
+  "bound": 1812784.9,
+  "timeMs": 1931.6989001818001
+ },
+ "D_2": {
+  "status": "OPTIMAL",
+  "cost": 1719877.1,
+  "bound": 1719877.1,
+  "timeMs": 1959.2633000575006
+ },
+ "D_3": {
+  "status": "OPTIMAL",
+  "cost": 1703653.5,
+  "bound": 1703653.5,
+  "timeMs": 1717.748900409788
+ },
+ "D_4": {
+  "status": "OPTIMAL",
+  "cost": 1469659.6,
+  "bound": 1469659.6,
+  "timeMs": 1823.3177000656724
+ },
+ "D_5": {
+  "status": "OPTIMAL",
+  "cost": 1781540.2,
+  "bound": 1781540.2,
+  "timeMs": 1856.4915000461042
+ }
+}
